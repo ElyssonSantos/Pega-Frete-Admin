@@ -125,13 +125,13 @@ async function loadStats() {
     const r = await fetch(`${API}/stats`, { headers: h });
     if (!r.ok) throw new Error();
     const d = await r.json();
-    document.getElementById('statShippers').innerText = d.totalShippers;
-    document.getElementById('statDrivers').innerText = d.totalDrivers;
-    document.getElementById('statPending').innerText = d.pendingDocuments;
-    document.getElementById('statFreights').innerText = d.totalFreights;
-    document.getElementById('badgePending').innerText = d.pendingDocuments;
-    document.getElementById('verifyCount').innerText = `${d.pendingDocuments} Pendentes`;
-    document.getElementById('statTotal').innerText = d.totalShippers + d.totalDrivers;
+    document.getElementById('statShippers').innerText = d.shippers || 0;
+    document.getElementById('statDrivers').innerText = d.drivers || 0;
+    document.getElementById('statPending').innerText = d.pendingDocs || 0;
+    document.getElementById('statFreights').innerText = d.totalFreights || 0;
+    document.getElementById('badgePending').innerText = d.pendingDocs || 0;
+    document.getElementById('verifyCount').innerText = `${d.pendingDocs || 0} Pendentes`;
+    document.getElementById('statTotal').innerText = (d.shippers || 0) + (d.drivers || 0);
 }
 
 async function loadUsers() {
