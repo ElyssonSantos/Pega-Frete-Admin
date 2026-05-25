@@ -1,212 +1,527 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PegaFrete Admin | Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <link rel="stylesheet" href="css/style.css">
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PegaFrete - Dashboard Administrativo</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              light: '#f8fafc',
+              DEFAULT: '#0f172a',
+              blue: '#1e40af',
+              accent: '#3b82f6'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style data-purpose="custom-shadows">
+    .card-shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1); }
+    .sidebar-border { border-right: 1px solid #e2e8f0; }
+    
+    /* Section toggling */
+    .dashboard-section { display: none; animation: fadeIn 0.4s ease-in-out; }
+    .dashboard-section.active { display: block; }
+    
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    /* Sidebar Mobile Toggle */
+    @media (max-width: 768px) {
+      .sidebar-wrapper {
+        position: fixed;
+        left: -100%;
+        top: 0;
+        bottom: 0;
+        z-index: 50;
+        transition: left 0.3s ease;
+      }
+      .sidebar-wrapper.active {
+        left: 0;
+        box-shadow: 10px 0 25px rgba(0,0,0,0.1);
+      }
+    }
+    
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    /* Toast */
+    .toast {
+      position: fixed; top: 24px; right: 24px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); transform: translateY(-20px); opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 1000;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+    
+    /* Modal */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal-content {
+      background: white; border-radius: 20px; width: 100%; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px rgba(0,0,0,0.2); transform: scale(0.95); transition: transform 0.3s; overflow: hidden;
+    }
+    .modal-overlay.active .modal-content { transform: scale(1); }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
-<body class="dashboard-body">
-<div id="toast" class="toast"></div>
-<div class="dashboard-wrapper">
-    <!-- SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="admin-logo-small"><i class="ph-fill ph-shield-checkered"></i></div>
-            <h2>Pega<span>Frete</span></h2>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="#stats" class="nav-link active" onclick="switchSection('stats')"><i class="ph ph-chart-bar"></i> Visão Geral</a>
-            <a href="#users" class="nav-link" onclick="switchSection('users')"><i class="ph ph-users"></i> Usuários</a>
-            <a href="#freights" class="nav-link" onclick="switchSection('freights')"><i class="ph ph-truck"></i> Fretes</a>
-            <a href="#documents" class="nav-link" onclick="switchSection('documents')"><i class="ph ph-file-text"></i> Documentos <span class="badge" id="badgePending">0</span></a>
-            <a href="#notifications" class="nav-link" onclick="switchSection('notifications')"><i class="ph ph-paper-plane-tilt"></i> Notificações</a>
-            <a href="#logs" class="nav-link" onclick="switchSection('logs')"><i class="ph ph-list-bullets"></i> Logs de Segurança</a>
-            <a href="#setup" class="nav-link" onclick="switchSection('setup')"><i class="ph ph-user-plus"></i> Configurar Admin</a>
-        </nav>
-        <div class="sidebar-footer">
-            <div class="admin-user-info">
-                <div class="admin-avatar"><i class="ph ph-user-gear"></i></div>
-                <div class="admin-details">
-                    <span class="admin-name" id="adminName">Admin</span>
-                    <span class="admin-role">Super Admin</span>
-                </div>
-            </div>
-            <button class="btn-logout" onclick="logoutAdmin()"><i class="ph ph-sign-out"></i> Sair</button>
-        </div>
-    </aside>
 
-    <!-- MAIN -->
-    <main class="main-content">
-        <header class="content-header">
-            <div class="header-left">
-                <button class="btn-toggle-menu" onclick="toggleSidebar()"><i class="ph ph-list"></i></button>
-                <h1 id="sectionTitle">Visão Geral</h1>
-            </div>
-            <div class="header-right">
-                <div class="server-status"><span class="status-dot online"></span><span>API Conectada</span></div>
-                <button class="btn-refresh" onclick="refreshSection()"><i class="ph ph-arrows-clockwise" id="refreshIcon"></i> Atualizar</button>
-            </div>
-        </header>
+<body class="bg-brand-light text-brand h-screen flex overflow-hidden">
+  <div id="toast" class="toast"></div>
 
-        <!-- STATS -->
-        <section id="section-stats" class="dashboard-section active">
-            <div class="stats-grid">
-                <div class="stats-card">
-                    <div class="card-icon" style="background:rgba(59,130,246,.1);color:#3b82f6"><i class="ph ph-buildings"></i></div>
-                    <div class="card-content"><h3>Embarcadores</h3><p class="counter" id="statShippers">0</p></div>
-                </div>
-                <div class="stats-card">
-                    <div class="card-icon" style="background:rgba(249,115,22,.1);color:#f97316"><i class="ph ph-steering-wheel"></i></div>
-                    <div class="card-content"><h3>Motoristas</h3><p class="counter" id="statDrivers">0</p></div>
-                </div>
-                <div class="stats-card pulse">
-                    <div class="card-icon" style="background:rgba(168,85,247,.1);color:#a855f7"><i class="ph ph-file-text"></i></div>
-                    <div class="card-content"><h3>Docs Pendentes</h3><p class="counter" id="statPending">0</p></div>
-                </div>
-                <div class="stats-card">
-                    <div class="card-icon" style="background:rgba(16,185,129,.1);color:#10b981"><i class="ph ph-truck"></i></div>
-                    <div class="card-content"><h3>Total de Fretes</h3><p class="counter" id="statFreights">0</p></div>
-                </div>
-            </div>
-            <div class="dashboard-grid mt-6">
-                <div class="grid-card col-8">
-                    <div class="card-header"><h2>Crescimento Operacional</h2><span class="card-subtitle">Evolução de fretes</span></div>
-                    <div class="chart-container">
-                        <div class="mock-chart">
-                            <div class="bar" style="height:40%"><span>Jan</span></div>
-                            <div class="bar" style="height:55%"><span>Fev</span></div>
-                            <div class="bar" style="height:70%"><span>Mar</span></div>
-                            <div class="bar" style="height:85%"><span>Abr</span></div>
-                            <div class="bar active" style="height:95%"><span>Mai</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="grid-card col-4">
-                    <div class="card-header"><h2>Perfis</h2><span class="card-subtitle">Distribuição de usuários</span></div>
-                    <div class="chart-container flex-center">
-                        <div class="mock-donut"><div class="donut-center"><span class="donut-total" id="statTotal">0</span><span class="donut-label">Usuários</span></div></div>
-                        <div class="legend"><div class="legend-item"><span class="color-dot blue"></span> Shippers</div><div class="legend-item"><span class="color-dot orange"></span> Drivers</div></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- USERS -->
-        <section id="section-users" class="dashboard-section">
-            <div class="grid-card">
-                <div class="card-header flex-between">
-                    <div><h2>Gerenciar Usuários</h2><span class="card-subtitle">Todos os usuários cadastrados na plataforma</span></div>
-                    <select id="roleFilter" onchange="loadUsers()" style="background:rgba(15,23,42,.6);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:10px;font-size:13px">
-                        <option value="">Todos</option><option value="driver">Motoristas</option><option value="shipper">Embarcadores</option>
-                    </select>
-                </div>
-                <div class="table-container"><table class="data-table"><thead><tr><th>Usuário</th><th>E-mail</th><th>Telefone</th><th>Role</th><th>Status Doc</th><th>Ações</th></tr></thead><tbody id="usersTableBody"><tr><td colspan="6" class="text-center py-6"><i class="ph ph-spinner ph-spin" style="font-size:24px;color:var(--primary)"></i></td></tr></tbody></table></div>
-            </div>
-        </section>
-
-        <!-- FREIGHTS -->
-        <section id="section-freights" class="dashboard-section">
-            <div class="grid-card">
-                <div class="card-header"><h2>Fretes Cadastrados</h2><span class="card-subtitle">Gerencie status e operações de frete</span></div>
-                <div class="table-container"><table class="data-table"><thead><tr><th>Origem</th><th>Destino</th><th>Valor</th><th>Tipo</th><th>Veículo</th><th>Status</th><th>Ações</th></tr></thead><tbody id="freightsTableBody"><tr><td colspan="7" class="text-center py-6"><i class="ph ph-spinner ph-spin" style="font-size:24px;color:var(--primary)"></i></td></tr></tbody></table></div>
-            </div>
-        </section>
-
-        <!-- DOCUMENTS -->
-        <section id="section-documents" class="dashboard-section">
-            <div class="grid-card">
-                <div class="card-header flex-between">
-                    <div><h2>Fila de Validação de Documentos</h2><span class="card-subtitle">Verifique documentos para liberar acesso</span></div>
-                    <span class="badge-inline badge-purple" id="verifyCount">0 Pendentes</span>
-                </div>
-                <div class="table-container"><table class="data-table"><thead><tr><th>Usuário</th><th>E-mail</th><th>Telefone</th><th>Cidade</th><th>Tipo</th><th>Ações</th></tr></thead><tbody id="docsTableBody"><tr><td colspan="6" class="text-center py-6"><i class="ph ph-spinner ph-spin" style="font-size:24px;color:var(--primary)"></i></td></tr></tbody></table></div>
-            </div>
-        </section>
-
-        <!-- NOTIFICATIONS -->
-        <section id="section-notifications" class="dashboard-section">
-            <div class="dashboard-grid">
-                <div class="grid-card col-6">
-                    <div class="card-header"><h2>Enviar Notificação</h2><span class="card-subtitle">Dispara mensagens no app principal</span></div>
-                    <form id="notifForm" onsubmit="handleSendNotification(event)" class="mt-4">
-                        <div class="input-group"><label>Destinatário</label><select id="notifyTarget" required><option value="all">Todos (Broadcast)</option></select></div>
-                        <div class="input-group"><label>Título</label><input type="text" id="notifyTitle" placeholder="Ex: Manutenção agendada..." required></div>
-                        <div class="input-group"><label>Mensagem</label><textarea id="notifyMessage" placeholder="Detalhes da notificação..." style="min-height:120px" required></textarea></div>
-                        <button type="submit" class="btn btn-primary mt-4" id="btnSendNotif">Enviar <i class="ph ph-paper-plane-tilt"></i></button>
-                    </form>
-                </div>
-                <div class="grid-card col-6">
-                    <div class="card-header"><h2>Histórico de Envios</h2><span class="card-subtitle">Últimas notificações disparadas</span></div>
-                    <div class="notification-history" id="notifHistory">
-                        <div class="history-item"><div class="history-icon"><i class="ph ph-broadcast"></i></div><div class="history-content"><h4>Sistema Operacional</h4><p>Nenhuma notificação enviada nesta sessão.</p><span class="history-date">—</span></div></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- LOGS -->
-        <section id="section-logs" class="dashboard-section">
-            <div class="grid-card">
-                <div class="card-header flex-between">
-                    <div><h2>Logs de Segurança e Auditoria</h2><span class="card-subtitle">Registro imutável (Zero Trust Policy)</span></div>
-                    <span class="badge-inline badge-red">Últimos 100</span>
-                </div>
-                <div class="table-container"><table class="data-table"><thead><tr><th>Horário</th><th>UID</th><th>Evento</th><th>Detalhes</th><th>Página</th></tr></thead><tbody id="logsTableBody"><tr><td colspan="5" class="text-center py-6"><i class="ph ph-spinner ph-spin" style="font-size:24px;color:var(--primary)"></i></td></tr></tbody></table></div>
-            </div>
-        </section>
-
-        <!-- SETUP -->
-        <section id="section-setup" class="dashboard-section">
-            <div class="grid-card" style="max-width:600px;margin:0 auto">
-                <div class="card-header"><h2>Configurar Novo Administrador</h2><span class="card-subtitle">Concede privilégios admin a uma conta pelo UID</span></div>
-                <form id="setupForm" onsubmit="handleSetupClaims(event)" class="mt-4">
-                    <div class="input-group"><label>UID do Usuário</label><input type="text" id="setupUid" placeholder="Ex: aBc1D2eFg3HiJk4..." required><span class="input-tip">Encontrado no Firebase Console → Authentication</span></div>
-                    <div class="input-group"><label>ADMIN_SETUP_SECRET</label><input type="password" id="setupSecret" placeholder="••••••••" required></div>
-                    <button type="submit" class="btn btn-primary mt-4" id="btnSetup">Promover a Admin <i class="ph ph-user-plus"></i></button>
-                </form>
-            </div>
-        </section>
-    </main>
-</div>
-
-<!-- MODAL: Document Verify -->
-<div id="docModal" class="modal-overlay">
-    <div class="modal-content">
-        <div class="modal-header"><h2>Verificar Documento</h2><button class="icon-btn" onclick="closeDocModal()"><i class="ph ph-x"></i></button></div>
-        <div class="modal-body">
-            <div class="doc-viewer-grid">
-                <div><p class="doc-file-label">Arquivo:</p><div class="doc-frame" id="docFrame"></div></div>
-                <div class="doc-meta-info">
-                    <h3 id="docName">—</h3>
-                    <p class="doc-meta-item"><strong>CPF/CNPJ:</strong> <span id="docCpf">—</span></p>
-                    <p class="doc-meta-item"><strong>Veículo:</strong> <span id="docVehicle">—</span></p>
-                    <div class="mt-6" style="border-top:1.5px solid var(--border);padding-top:16px">
-                        <h3>Decisão</h3>
-                        <div class="action-buttons-row mt-4">
-                            <button class="btn btn-success btn-sm" onclick="verifyDoc('verified')"><i class="ph ph-check-circle"></i> Aprovar</button>
-                            <button class="btn btn-danger btn-sm" onclick="toggleReject(true)"><i class="ph ph-x-circle"></i> Rejeitar</button>
-                        </div>
-                        <div id="rejectArea" class="rejection-reason-area mt-4" style="display:none">
-                            <label>Justificativa (enviada ao usuário)</label>
-                            <textarea id="rejectReason" placeholder="Ex: CNH vencida..." style="min-height:80px"></textarea>
-                            <div class="action-buttons-row mt-2">
-                                <button class="btn btn-danger btn-sm" onclick="verifyDoc('rejected')">Confirmar Rejeição</button>
-                                <button class="btn btn-secondary btn-sm" onclick="toggleReject(false)">Cancelar</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- BEGIN: Sidebar -->
+  <aside class="w-64 sidebar-border bg-white flex flex-col flex-shrink-0 sidebar-wrapper" id="sidebar">
+    <!-- Logo Section -->
+    <div class="p-6 flex items-center gap-3 border-b border-slate-100">
+      <div class="w-10 h-10 bg-brand-blue rounded-lg flex items-center justify-center shadow-md text-white">
+        <i class="ph-fill ph-shield-checkered text-xl"></i>
+      </div>
+      <span class="text-xl font-bold tracking-tight text-brand">PegaFrete</span>
+      <!-- Mobile Close Btn -->
+      <button class="md:hidden ml-auto text-slate-500" onclick="toggleSidebar()"><i class="ph ph-x text-xl"></i></button>
     </div>
-</div>
-<script src="js/admin.js"></script>
+
+    <!-- Navigation Menu -->
+    <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+      <a class="nav-link flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-brand rounded-lg transition-colors font-medium" href="#stats" onclick="switchSection('stats')">
+        <i class="ph ph-squares-four text-lg"></i> Visão Geral
+      </a>
+      <a class="nav-link flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-brand rounded-lg transition-colors font-medium" href="#users" onclick="switchSection('users')">
+        <i class="ph ph-users text-lg"></i> Usuários
+      </a>
+      <a class="nav-link flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-brand rounded-lg transition-colors font-medium" href="#freights" onclick="switchSection('freights')">
+        <i class="ph ph-truck text-lg"></i> Fretes
+      </a>
+      
+      <div class="relative">
+        <a class="nav-link flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-brand rounded-lg transition-colors font-medium" href="#documents" onclick="switchSection('documents')">
+          <i class="ph ph-file-text text-lg"></i> Documentos
+        </a>
+        <span id="badgePending" class="absolute right-4 top-1/2 -translate-y-1/2 bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">0</span>
+      </div>
+
+      <a class="nav-link flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-brand rounded-lg transition-colors font-medium" href="#notifications" onclick="switchSection('notifications')">
+        <i class="ph ph-paper-plane-tilt text-lg"></i> Notificações
+      </a>
+      <a class="nav-link flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-brand rounded-lg transition-colors font-medium" href="#logs" onclick="switchSection('logs')">
+        <i class="ph ph-shield-warning text-lg"></i> Logs de Segurança
+      </a>
+    </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="p-4 border-t border-slate-100">
+      <a href="#setup" class="nav-link w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-brand rounded-lg transition-colors font-medium mb-2" onclick="switchSection('setup')">
+        <i class="ph ph-user-plus text-lg"></i> Configurar Admin
+      </a>
+      <div class="flex items-center gap-3 px-4 py-2 mb-2">
+        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600"><i class="ph ph-user"></i></div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-bold text-slate-700 truncate" id="adminName">Admin</p>
+          <p class="text-[11px] text-slate-500 uppercase font-semibold tracking-wider">Super Admin</p>
+        </div>
+      </div>
+      <button class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors text-sm font-bold" onclick="logoutAdmin()">
+        <i class="ph ph-sign-out"></i> Sair
+      </button>
+    </div>
+  </aside>
+
+  <!-- BEGIN: Main Content -->
+  <main class="flex-1 overflow-y-auto flex flex-col relative w-full">
+    <!-- Header -->
+    <header class="h-20 bg-white border-b border-slate-200 px-6 md:px-8 flex items-center justify-between sticky top-0 z-10 w-full shrink-0">
+      <div class="flex items-center gap-3">
+        <button class="md:hidden text-slate-500 p-2 rounded-md hover:bg-slate-50" onclick="toggleSidebar()">
+          <i class="ph ph-list text-2xl"></i>
+        </button>
+        <h1 class="text-xl md:text-2xl font-bold text-brand" id="sectionTitle">Visão Geral</h1>
+      </div>
+      
+      <div class="flex items-center gap-3 md:gap-6">
+        <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 text-xs md:text-sm font-medium rounded-full border border-green-100">
+          <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+          API Conectada
+        </div>
+        <button class="px-4 py-2 md:px-5 md:py-2.5 bg-brand text-white font-semibold rounded-lg hover:bg-slate-800 transition-all text-xs md:text-sm card-shadow flex items-center gap-2" onclick="refreshSection()">
+          <i class="ph ph-arrows-clockwise" id="refreshIcon"></i>
+          <span class="hidden sm:inline">Atualizar</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="p-4 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
+      
+      <!-- === SECTION: STATS === -->
+      <section id="section-stats" class="dashboard-section active">
+        <!-- Summary Cards Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          <div class="bg-white p-6 rounded-xl border border-slate-200 card-shadow flex items-center gap-4">
+            <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
+              <i class="ph ph-buildings text-2xl"></i>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-slate-500">Embarcadores</p>
+              <p class="text-2xl font-bold text-brand tracking-tight" id="statShippers">0</p>
+            </div>
+          </div>
+          
+          <div class="bg-white p-6 rounded-xl border border-slate-200 card-shadow flex items-center gap-4">
+            <div class="w-12 h-12 bg-slate-50 rounded-lg flex items-center justify-center text-slate-600">
+              <i class="ph ph-steering-wheel text-2xl"></i>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-slate-500">Motoristas</p>
+              <p class="text-2xl font-bold text-brand tracking-tight" id="statDrivers">0</p>
+            </div>
+          </div>
+          
+          <div class="bg-white p-6 rounded-xl border border-slate-200 card-shadow relative overflow-hidden flex items-center gap-4">
+            <div class="absolute top-0 right-0 w-1.5 h-full bg-orange-400"></div>
+            <div class="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center text-orange-600">
+              <i class="ph ph-warning-circle text-2xl"></i>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-slate-500">Docs Pendentes</p>
+              <p class="text-2xl font-bold text-brand tracking-tight" id="statPending">0</p>
+            </div>
+          </div>
+          
+          <div class="bg-brand text-white p-6 rounded-xl card-shadow flex items-center gap-4">
+            <div class="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center text-white">
+              <i class="ph ph-package text-2xl"></i>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-slate-300">Total de Fretes</p>
+              <p class="text-2xl font-bold tracking-tight" id="statFreights">0</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+          <!-- Main Growth Chart -->
+          <div class="lg:col-span-2 bg-white p-6 md:p-8 rounded-xl border border-slate-200 card-shadow">
+            <div class="flex items-center justify-between mb-8">
+              <div>
+                <h3 class="text-lg font-bold text-brand">Crescimento Operacional</h3>
+                <p class="text-sm text-slate-500">Evolução mensal de fretes</p>
+              </div>
+              <select class="text-sm border-slate-200 rounded-md focus:ring-brand-accent focus:border-brand-accent bg-slate-50 px-3 py-1.5 outline-none">
+                <option>Últimos 5 meses</option>
+              </select>
+            </div>
+            <div class="h-64 flex items-end justify-between gap-2 md:gap-4 px-2 md:px-4 border-b border-slate-100 pb-2">
+              <div class="flex-1 flex flex-col items-center gap-3"><div class="w-full bg-slate-100 rounded-t-md hover:bg-slate-200 transition-colors" style="height: 35%"></div><span class="text-xs font-medium text-slate-500">Jan</span></div>
+              <div class="flex-1 flex flex-col items-center gap-3"><div class="w-full bg-slate-100 rounded-t-md hover:bg-slate-200 transition-colors" style="height: 45%"></div><span class="text-xs font-medium text-slate-500">Fev</span></div>
+              <div class="flex-1 flex flex-col items-center gap-3"><div class="w-full bg-slate-100 rounded-t-md hover:bg-slate-200 transition-colors" style="height: 60%"></div><span class="text-xs font-medium text-slate-500">Mar</span></div>
+              <div class="flex-1 flex flex-col items-center gap-3"><div class="w-full bg-slate-100 rounded-t-md hover:bg-slate-200 transition-colors" style="height: 75%"></div><span class="text-xs font-medium text-slate-500">Abr</span></div>
+              <div class="flex-1 flex flex-col items-center gap-3"><div class="w-full bg-gradient-to-t from-blue-700 to-blue-500 rounded-t-md shadow-lg" style="height: 95%"></div><span class="text-xs font-bold text-brand">Mai</span></div>
+            </div>
+          </div>
+          
+          <!-- Donut Chart -->
+          <div class="bg-white p-6 md:p-8 rounded-xl border border-slate-200 card-shadow flex flex-col items-center">
+            <div class="w-full text-left mb-6">
+              <h3 class="text-lg font-bold text-brand mb-1">Perfis</h3>
+              <p class="text-sm text-slate-500">Distribuição de usuários</p>
+            </div>
+            <div class="relative w-40 h-40 mb-6">
+              <svg class="w-full h-full -rotate-90" viewbox="0 0 36 36">
+                <circle class="stroke-blue-100" cx="18" cy="18" fill="none" r="16" stroke-width="3.5"></circle>
+                <circle class="stroke-orange-500" cx="18" cy="18" fill="none" r="16" stroke-dasharray="70, 100" stroke-linecap="round" stroke-width="3.5"></circle>
+                <circle class="stroke-brand-blue" cx="18" cy="18" fill="none" r="16" stroke-dasharray="20, 100" stroke-dashoffset="-70" stroke-linecap="round" stroke-width="3.5"></circle>
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <span class="text-2xl font-extrabold text-brand tracking-tighter" id="statTotal">0</span>
+                <span class="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Total</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-6">
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-brand-blue"></span><span class="text-xs font-bold text-slate-600">Shippers</span></div>
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-orange-500"></span><span class="text-xs font-bold text-slate-600">Drivers</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- === SECTION: USERS === -->
+      <section id="section-users" class="dashboard-section">
+        <div class="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
+          <div class="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 class="text-lg font-bold text-brand">Gerenciar Usuários</h3>
+              <p class="text-sm text-slate-500">Todos os usuários cadastrados</p>
+            </div>
+            <select id="roleFilter" onchange="loadUsers()" class="text-sm border-slate-200 rounded-md focus:ring-brand-accent px-3 py-2 bg-slate-50 outline-none">
+              <option value="">Todos os perfis</option>
+              <option value="driver">Motoristas</option>
+              <option value="shipper">Embarcadores</option>
+            </select>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left whitespace-nowrap">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 text-[11px] uppercase font-bold tracking-wider">
+                  <th class="px-6 py-4">Usuário</th>
+                  <th class="px-6 py-4">E-mail</th>
+                  <th class="px-6 py-4">Telefone</th>
+                  <th class="px-6 py-4">Role</th>
+                  <th class="px-6 py-4">Status Doc</th>
+                  <th class="px-6 py-4">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-sm" id="usersTableBody">
+                <tr><td colspan="6" class="text-center py-8 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- === SECTION: FREIGHTS === -->
+      <section id="section-freights" class="dashboard-section">
+        <div class="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
+          <div class="px-6 py-5 border-b border-slate-100">
+            <h3 class="text-lg font-bold text-brand">Fretes Cadastrados</h3>
+            <p class="text-sm text-slate-500">Gerencie status e operações</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left whitespace-nowrap">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 text-[11px] uppercase font-bold tracking-wider">
+                  <th class="px-6 py-4">Origem / Destino</th>
+                  <th class="px-6 py-4">Valor</th>
+                  <th class="px-6 py-4">Tipo</th>
+                  <th class="px-6 py-4">Veículo</th>
+                  <th class="px-6 py-4">Status</th>
+                  <th class="px-6 py-4">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-sm" id="freightsTableBody">
+                <tr><td colspan="6" class="text-center py-8 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- === SECTION: DOCUMENTS === -->
+      <section id="section-documents" class="dashboard-section">
+        <div class="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
+          <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-bold text-brand">Fila de Validação de Documentos</h3>
+              <p class="text-sm text-slate-500">Verifique os documentos</p>
+            </div>
+            <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold" id="verifyCount">0 Pendentes</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left whitespace-nowrap">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 text-[11px] uppercase font-bold tracking-wider">
+                  <th class="px-6 py-4">Usuário</th>
+                  <th class="px-6 py-4">E-mail</th>
+                  <th class="px-6 py-4">Telefone</th>
+                  <th class="px-6 py-4">Cidade/Veículo</th>
+                  <th class="px-6 py-4">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-sm" id="docsTableBody">
+                <tr><td colspan="5" class="text-center py-8 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- === SECTION: NOTIFICATIONS === -->
+      <section id="section-notifications" class="dashboard-section">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl border border-slate-200 card-shadow p-6">
+            <h3 class="text-lg font-bold text-brand mb-1">Enviar Notificação</h3>
+            <p class="text-sm text-slate-500 mb-6">Dispara mensagens no app principal</p>
+            
+            <form id="notifForm" onsubmit="handleSendNotification(event)" class="space-y-4">
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Destinatário</label>
+                <select id="notifyTarget" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none" required>
+                  <option value="all">Todos (Broadcast)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Título</label>
+                <input type="text" id="notifyTitle" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none" placeholder="Ex: Aviso importante" required>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Mensagem</label>
+                <textarea id="notifyMessage" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none min-h-[100px]" placeholder="Detalhes da mensagem..." required></textarea>
+              </div>
+              <button type="submit" id="btnSendNotif" class="w-full bg-brand-accent hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg flex justify-center items-center gap-2 transition-colors">
+                <i class="ph ph-paper-plane-tilt text-lg"></i> Enviar Mensagem
+              </button>
+            </form>
+          </div>
+          
+          <div class="bg-white rounded-xl border border-slate-200 card-shadow p-6 flex flex-col">
+            <h3 class="text-lg font-bold text-brand mb-1">Histórico de Envios</h3>
+            <p class="text-sm text-slate-500 mb-6">Últimas mensagens disparadas na sessão</p>
+            <div class="flex-1 overflow-y-auto space-y-3 max-h-[400px]" id="notifHistory">
+              <div class="p-4 bg-slate-50 rounded-lg border border-slate-100 flex gap-3">
+                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0"><i class="ph ph-info"></i></div>
+                <div>
+                  <h4 class="text-sm font-bold text-brand">Sistema</h4>
+                  <p class="text-xs text-slate-600 mt-1">Nenhuma notificação enviada.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- === SECTION: LOGS === -->
+      <section id="section-logs" class="dashboard-section">
+        <div class="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
+          <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-bold text-brand">Logs de Segurança</h3>
+              <p class="text-sm text-slate-500">Auditoria do sistema</p>
+            </div>
+            <span class="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-bold border border-red-100">Últimos 100</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left whitespace-nowrap">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 text-[11px] uppercase font-bold tracking-wider">
+                  <th class="px-6 py-4">Data/Hora</th>
+                  <th class="px-6 py-4">UID</th>
+                  <th class="px-6 py-4">Evento</th>
+                  <th class="px-6 py-4">Detalhes</th>
+                  <th class="px-6 py-4">Origem</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-sm" id="logsTableBody">
+                <tr><td colspan="5" class="text-center py-8 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- === SECTION: SETUP === -->
+      <section id="section-setup" class="dashboard-section">
+        <div class="bg-white rounded-xl border border-slate-200 card-shadow max-w-xl mx-auto overflow-hidden">
+          <div class="px-6 py-5 border-b border-slate-100 bg-slate-50">
+            <h3 class="text-lg font-bold text-brand">Configurar Novo Admin</h3>
+            <p class="text-sm text-slate-500">Conceda permissão via UID do Firebase</p>
+          </div>
+          <form id="setupForm" onsubmit="handleSetupClaims(event)" class="p-6 space-y-5">
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">UID do Usuário</label>
+              <input type="text" id="setupUid" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-accent outline-none" placeholder="Ex: UID copiado do Console..." required>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Secret Key (Setup)</label>
+              <input type="password" id="setupSecret" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-accent outline-none" placeholder="••••••••" required>
+            </div>
+            <button type="submit" id="btnSetup" class="w-full bg-brand hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-lg flex justify-center items-center gap-2 transition-colors mt-2">
+              <i class="ph ph-shield-check"></i> Promover a Administrador
+            </button>
+          </form>
+        </div>
+      </section>
+
+    </div>
+  </main>
+  
+  <!-- MODAL: Document Verify -->
+  <div id="docModal" class="modal-overlay">
+      <div class="modal-content">
+          <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 class="text-lg font-bold text-brand">Verificar Documento</h2>
+              <button class="text-slate-400 hover:text-slate-600 bg-white shadow-sm border rounded-md p-1" onclick="closeDocModal()"><i class="ph ph-x text-lg"></i></button>
+          </div>
+          <div class="p-6 overflow-y-auto">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                      <p class="text-sm font-semibold text-slate-600 mb-2">Arquivo enviado:</p>
+                      <div class="w-full h-64 bg-slate-100 border border-slate-200 border-dashed rounded-xl flex justify-center items-center overflow-hidden" id="docFrame"></div>
+                  </div>
+                  <div class="flex flex-col">
+                      <h3 class="text-xl font-bold text-brand mb-4" id="docName">—</h3>
+                      <div class="space-y-3 mb-6">
+                          <div class="flex justify-between border-b border-slate-100 pb-2">
+                              <span class="text-slate-500 text-sm">CPF/CNPJ:</span>
+                              <strong class="text-brand text-sm" id="docCpf">—</strong>
+                          </div>
+                          <div class="flex justify-between border-b border-slate-100 pb-2">
+                              <span class="text-slate-500 text-sm">Veículo:</span>
+                              <strong class="text-brand text-sm" id="docVehicle">—</strong>
+                          </div>
+                      </div>
+                      
+                      <div class="mt-auto border-t border-slate-100 pt-4">
+                          <h4 class="text-sm font-bold text-brand mb-3">Ação:</h4>
+                          <div class="flex gap-3">
+                              <button class="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors" onclick="verifyDoc('verified')">
+                                  <i class="ph ph-check-circle"></i> Aprovar
+                              </button>
+                              <button class="flex-1 bg-white border border-red-500 text-red-500 hover:bg-red-50 py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors" onclick="toggleReject(true)">
+                                  <i class="ph ph-x-circle"></i> Rejeitar
+                              </button>
+                          </div>
+                          
+                          <div id="rejectArea" class="mt-4 p-4 bg-red-50 border border-red-100 rounded-lg" style="display:none">
+                              <label class="block text-xs font-bold text-red-600 mb-2">Motivo da rejeição (será enviado ao usuário)</label>
+                              <textarea id="rejectReason" class="w-full border border-red-200 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 mb-3 bg-white" rows="2" placeholder="Ex: Imagem ilegível, documento vencido..."></textarea>
+                              <div class="flex gap-2">
+                                  <button class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow-sm" onclick="verifyDoc('rejected')">Confirmar Rejeição</button>
+                                  <button class="bg-white text-slate-600 border text-xs font-bold py-1.5 px-3 rounded hover:bg-slate-50" onclick="toggleReject(false)">Cancelar</button>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </div>
+  </div>
+
+  <script src="js/admin.js"></script>
+  <script>
+    // Adjust logic to update active nav links properly in Tailwind
+    const originalSwitchSection = switchSection;
+    window.switchSection = function(id) {
+      originalSwitchSection(id);
+      
+      // Update Tailwind styling for nav links
+      document.querySelectorAll('.nav-link').forEach(l => {
+        if(l.getAttribute('href') === `#${id}`) {
+           l.classList.remove('text-slate-500', 'hover:bg-slate-50', 'hover:text-brand');
+           l.classList.add('text-brand-blue', 'bg-blue-50', 'font-semibold');
+        } else {
+           l.classList.add('text-slate-500', 'hover:bg-slate-50', 'hover:text-brand');
+           l.classList.remove('text-brand-blue', 'bg-blue-50', 'font-semibold');
+        }
+      });
+    };
+  </script>
 </body>
 </html>
