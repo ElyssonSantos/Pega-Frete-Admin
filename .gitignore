@@ -1,0 +1,5 @@
+node_modules/
+.env
+*.log
+*-firebase-adminsdk-*.json
+pegafrete-logistica-firebase-adminsdk-*.json

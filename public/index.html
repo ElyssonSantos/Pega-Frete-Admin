@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PegaFrete Admin | Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/style.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+</head>
+<body class="auth-body">
+    <div id="toast" class="toast"></div>
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="admin-logo"><i class="ph-fill ph-shield-checkered"></i></div>
+            <h1>Pega<span>Frete</span></h1>
+            <p class="subtitle">PAINEL ADMINISTRATIVO</p>
+        </div>
+        <div class="auth-card">
+            <h2>Acesso Restrito</h2>
+            <p class="card-desc">Entre com suas credenciais administrativas para gerenciar o sistema.</p>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="input-group">
+                    <label for="email"><i class="ph ph-envelope"></i> E-mail</label>
+                    <input type="email" id="email" placeholder="admin@pegafrete.com.br" required autocomplete="email">
+                </div>
+                <div class="input-group" style="position:relative">
+                    <label for="password"><i class="ph ph-lock"></i> Senha</label>
+                    <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+                    <button type="button" class="btn-toggle-password" onclick="togglePass()">
+                        <i class="ph ph-eye" id="toggleIcon"></i>
+                    </button>
+                </div>
+                <button type="submit" class="btn btn-primary" id="btnLogin">
+                    Entrar no Painel <i class="ph ph-sign-in"></i>
+                </button>
+            </form>
+            <div class="security-warning">
+                <i class="ph ph-warning-circle"></i>
+                <span>Este sistema monitora acessos. Tentativas não autorizadas serão registradas.</span>
+            </div>
+        </div>
+        <div class="auth-footer">PegaFrete &copy; 2026 | Área de TI & Segurança</div>
+    </div>
+    <script src="js/admin.js"></script>
+</body>
+</html>

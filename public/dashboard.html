@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PegaFrete Admin | Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/style.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+</head>
+<body class="dashboard-body">
+<div id="toast" class="toast"></div>
+<div class="dashboard-wrapper">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="admin-logo-small"><i class="ph-fill ph-shield-checkered"></i></div>
+            <h2>Pega<span>Frete</span></h2>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#stats" class="nav-link active" onclick="switchSection('stats')"><i class="ph ph-chart-bar"></i> Visão Geral</a>
+            <a href="#users" class="nav-link" onclick="switchSection('users')"><i class="ph ph-users"></i> Usuários</a>
+            <a href="#freights" class="nav-link" onclick="switchSection('freights')"><i class="ph ph-truck"></i> Fretes</a>
+            <a href="#documents" class="nav-link" onclick="switchSection('documents')"><i class="ph ph-file-text"></i> Documentos <span class="badge" id="badgePending">0</span></a>
+            <a href="#notifications" class="nav-link" onclick="switchSection('notifications')"><i class="ph ph-paper-plane-tilt"></i> Notificações</a>
+            <a href="#logs" class="nav-link" onclick="switchSection('logs')"><i class="ph ph-list-bullets"></i> Logs de Segurança</a>
+            <a href="#setup" class="nav-link" onclick="switchSection('setup')"><i class="ph ph-user-plus"></i> Configurar Admin</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="admin-user-info">
+                <div class="admin-avatar"><i class="ph ph-user-gear"></i></div>
+                <div class="admin-details">
+                    <span class="admin-name" id="adminName">Admin</span>
+                    <span class="admin-role">Super Admin</span>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="logoutAdmin()"><i class="ph ph-sign-out"></i> Sair</button>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main-content">
+        <header class="content-header">
+            <div class="header-left">
+                <button class="btn-toggle-menu" onclick="toggleSidebar()"><i class="ph ph-list"></i></button>
+                <h1 id="sectionTitle">Visão Geral</h1>
+            </div>
+            <div class="header-right">
+                <div class="server-status"><span class="status-dot online"></span><span>API Conectada</span></div>
+                <button class="btn-refresh" onclick="refreshSection()"><i class="ph ph-arrows-clockwise" id="refreshIcon"></i> Atualizar</button>
+            </div>
+        </header>
+
+        <!-- STATS -->
+        <section id="section-stats" class="dashboard-section active">
+            <div class="stats-grid">
+                <div class="stats-card">
+                    <div class="card-icon" style="background:rgba(59,130,246,.1);color:#3b82f6"><i class="ph ph-buildings"></i></div>
+                    <div class="card-content"><h3>Embarcadores</h3><p class="counter" id="statShippers">0</p></div>
+                </div>
+                <div class="stats-card">
+                    <div class="card-icon" style="background:rgba(249,115,22,.1);color:#f97316"><i class="ph ph-steering-wheel"></i></div>
+                    <div class="card-content"><h3>Motoristas</h3><p class="counter" id="statDrivers">0</p></div>
+                </div>
+                <div class="stats-card pulse">
+                    <div class="card-icon" style="background:rgba(168,85,247,.1);color:#a855f7"><i class="ph ph-file-text"></i></div>
+                    <div class="card-content"><h3>Docs Pendentes</h3><p class="counter" id="statPending">0</p></div>
+                </div>
+                <div class="stats-card">
+                    <div class="card-icon" style="background:rgba(16,185,129,.1);color:#10b981"><i class="ph ph-truck"></i></div>
+                    <div class="card-content"><h3>Total de Fretes</h3><p class="counter" id="statFreights">0</p></div>
+                </div>
+            </div>
+            <div class="dashboard-grid mt-6">
+                <div class="grid-card col-8">
+                    <div class="card-header"><h2>Crescimento Operacional</h2><span class="card-subtitle">Evolução de fretes</span></div>
+                    <div class="chart-container">
+                        <div class="mock-chart">
+                            <div class="bar" style="height:40%"><span>Jan</span></div>
+                            <div class="bar" style="height:55%"><span>Fev</span></div>
+                            <div class="bar" style="height:70%"><span>Mar</span></div>
+                            <div class="bar" style="height:85%"><span>Abr</span></div>
+                            <div class="bar active" style="height:95%"><span>Mai</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid-card col-4">
+                    <div class="card-header"><h2>Perfis</h2><span class="card-subtitle">Distribuição de usuários</span></div>
+                    <div class="chart-container flex-center">
+                        <div class="mock-donut"><div class="donut-center"><span class="donut-total" id="statTotal">0</span><span class="donut-label">Usuários</span></div></div>
+                        <div class="legend"><div class="legend-item"><span class="color-dot blue"></span> Shippers</div><div class="legend-item"><span class="color-dot orange"></span> Drivers</div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- USERS -->
+        <section id="section-users" class="dashboard-section">
+            <div class="grid-card">
+                <div class="card-header flex-between">
+                    <div><h2>Gerenciar Usuários</h2><span class="card-subtitle">Todos os usuários cadastrados na plataforma</span></div>
+                    <select id="roleFilter" onchange="loadUsers()" style="background:rgba(15,23,42,.6);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:10px;font-size:13px">
+                        <option value="">Todos</option><option value="driver">Motoristas</option><option value="shipper">Embarcadores</option>
+                    </select>
+                </div>
+                <div class="table-container"><table class="data-table"><thead><tr><th>Usuário</th><th>E-mail</th><th>Telefone</th><th>Role</th><th>Status Doc</th><th>Ações</th></tr></thead><tbody id="usersTableBody"><tr><td colspan="6" class="text-center py-6"><i class="ph ph-spinner ph-spin" style="font-size:24px;color:var(--primary)"></i></td></tr></tbody></table></div>
+            </div>
+        </section>
+
+        <!-- FREIGHTS -->
+        <section id="section-freights" class="dashboard-section">
+            <div class="grid-card">
+                <div class="card-header"><h2>Fretes Cadastrados</h2><span class="card-subtitle">Gerencie status e operações de frete</span></div>
+                <div class="table-container"><table class="data-table"><thead><tr><th>Origem</th><th>Destino</th><th>Valor</th><th>Tipo</th><th>Veículo</th><th>Status</th><th>Ações</th></tr></thead><tbody id="freightsTableBody"><tr><td colspan="7" class="text-center py-6"><i class="ph ph-spinner ph-spin" style="font-size:24px;color:var(--primary)"></i></td></tr></tbody></table></div>
+            </div>
+        </section>
+
+        <!-- DOCUMENTS -->
+        <section id="section-documents" class="dashboard-section">
+            <div class="grid-card">
+                <div class="card-header flex-between">
+                    <div><h2>Fila de Validação de Documentos</h2><span class="card-subtitle">Verifique documentos para liberar acesso</span></div>
+                    <span class="badge-inline badge-purple" id="verifyCount">0 Pendentes</span>
+                </div>
+                <div class="table-container"><table class="data-table"><thead><tr><th>Usuário</th><th>E-mail</th><th>Telefone</th><th>Cidade</th><th>Tipo</th><th>Ações</th></tr></thead><tbody id="docsTableBody"><tr><td colspan="6" class="text-center py-6"><i class="ph ph-spinner ph-spin" style="font-size:24px;color:var(--primary)"></i></td></tr></tbody></table></div>
+            </div>
+        </section>
+
+        <!-- NOTIFICATIONS -->
+        <section id="section-notifications" class="dashboard-section">
+            <div class="dashboard-grid">
+                <div class="grid-card col-6">
+                    <div class="card-header"><h2>Enviar Notificação</h2><span class="card-subtitle">Dispara mensagens no app principal</span></div>
+                    <form id="notifForm" onsubmit="handleSendNotification(event)" class="mt-4">
+                        <div class="input-group"><label>Destinatário</label><select id="notifyTarget" required><option value="all">Todos (Broadcast)</option></select></div>
+                        <div class="input-group"><label>Título</label><input type="text" id="notifyTitle" placeholder="Ex: Manutenção agendada..." required></div>
+                        <div class="input-group"><label>Mensagem</label><textarea id="notifyMessage" placeholder="Detalhes da notificação..." style="min-height:120px" required></textarea></div>
+                        <button type="submit" class="btn btn-primary mt-4" id="btnSendNotif">Enviar <i class="ph ph-paper-plane-tilt"></i></button>
+                    </form>
+                </div>
+                <div class="grid-card col-6">
+                    <div class="card-header"><h2>Histórico de Envios</h2><span class="card-subtitle">Últimas notificações disparadas</span></div>
+                    <div class="notification-history" id="notifHistory">
+                        <div class="history-item"><div class="history-icon"><i class="ph ph-broadcast"></i></div><div class="history-content"><h4>Sistema Operacional</h4><p>Nenhuma notificação enviada nesta sessão.</p><span class="history-date">—</span></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LOGS -->
+        <section id="section-logs" class="dashboard-section">
+            <div class="grid-card">
+                <div class="card-header flex-between">
+                    <div><h2>Logs de Segurança e Auditoria</h2><span class="card-subtitle">Registro imutável (Zero Trust Policy)</span></div>
+                    <span class="badge-inline badge-red">Últimos 100</span>
+                </div>
+                <div class="table-container"><table class="data-table"><thead><tr><th>Horário</th><th>UID</th><th>Evento</th><th>Detalhes</th><th>Página</th></tr></thead><tbody id="logsTableBody"><tr><td colspan="5" class="text-center py-6"><i class="ph ph-spinner ph-spin" style="font-size:24px;color:var(--primary)"></i></td></tr></tbody></table></div>
+            </div>
+        </section>
+
+        <!-- SETUP -->
+        <section id="section-setup" class="dashboard-section">
+            <div class="grid-card" style="max-width:600px;margin:0 auto">
+                <div class="card-header"><h2>Configurar Novo Administrador</h2><span class="card-subtitle">Concede privilégios admin a uma conta pelo UID</span></div>
+                <form id="setupForm" onsubmit="handleSetupClaims(event)" class="mt-4">
+                    <div class="input-group"><label>UID do Usuário</label><input type="text" id="setupUid" placeholder="Ex: aBc1D2eFg3HiJk4..." required><span class="input-tip">Encontrado no Firebase Console → Authentication</span></div>
+                    <div class="input-group"><label>ADMIN_SETUP_SECRET</label><input type="password" id="setupSecret" placeholder="••••••••" required></div>
+                    <button type="submit" class="btn btn-primary mt-4" id="btnSetup">Promover a Admin <i class="ph ph-user-plus"></i></button>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- MODAL: Document Verify -->
+<div id="docModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header"><h2>Verificar Documento</h2><button class="icon-btn" onclick="closeDocModal()"><i class="ph ph-x"></i></button></div>
+        <div class="modal-body">
+            <div class="doc-viewer-grid">
+                <div><p class="doc-file-label">Arquivo:</p><div class="doc-frame" id="docFrame"></div></div>
+                <div class="doc-meta-info">
+                    <h3 id="docName">—</h3>
+                    <p class="doc-meta-item"><strong>CPF/CNPJ:</strong> <span id="docCpf">—</span></p>
+                    <p class="doc-meta-item"><strong>Veículo:</strong> <span id="docVehicle">—</span></p>
+                    <div class="mt-6" style="border-top:1.5px solid var(--border);padding-top:16px">
+                        <h3>Decisão</h3>
+                        <div class="action-buttons-row mt-4">
+                            <button class="btn btn-success btn-sm" onclick="verifyDoc('verified')"><i class="ph ph-check-circle"></i> Aprovar</button>
+                            <button class="btn btn-danger btn-sm" onclick="toggleReject(true)"><i class="ph ph-x-circle"></i> Rejeitar</button>
+                        </div>
+                        <div id="rejectArea" class="rejection-reason-area mt-4" style="display:none">
+                            <label>Justificativa (enviada ao usuário)</label>
+                            <textarea id="rejectReason" placeholder="Ex: CNH vencida..." style="min-height:80px"></textarea>
+                            <div class="action-buttons-row mt-2">
+                                <button class="btn btn-danger btn-sm" onclick="verifyDoc('rejected')">Confirmar Rejeição</button>
+                                <button class="btn btn-secondary btn-sm" onclick="toggleReject(false)">Cancelar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="js/admin.js"></script>
+</body>
+</html>
