@@ -66,7 +66,8 @@ app.use(helmet({
         "https://www.gstatic.com",
         "https://apis.google.com",
         "https://cdn.jsdelivr.net",
-        "https://unpkg.com"
+        "https://unpkg.com",
+        "https://cdn.tailwindcss.com"
       ],
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: [
