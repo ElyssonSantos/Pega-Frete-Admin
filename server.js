@@ -14,6 +14,13 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const admin = require('firebase-admin');
 
+// ── Globais de Diagnóstico ──
+let firebaseInitStatus = {
+  success: false,
+  error: null,
+  method: null
+};
+
 // ───────────────────────── Firebase Admin Init ─────────────────────────
 
 function initializeFirebase() {
@@ -35,25 +42,34 @@ function initializeFirebase() {
       }
       admin.initializeApp({ credential: admin.credential.cert(parsed) });
       console.log('✅ Firebase Admin inicializado com JSON da env.');
+      firebaseInitStatus = { success: true, method: 'env_json' };
       return;
     } catch (parseErr) {
       console.error('⚠️  Falha ao parsear JSON da env:', parseErr.message);
+      firebaseInitStatus.error = `Falha ao parsear JSON da env: ${parseErr.message}`;
       // Se falhar, tenta como caminho de arquivo
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const serviceAccount = require(path.resolve(credentialEnv));
         admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
         console.log('✅ Firebase Admin inicializado com arquivo de credencial.');
+        firebaseInitStatus = { success: true, method: 'file_path' };
         return;
       } catch (fileErr) {
         console.error('⚠️  Falha ao ler credencial do arquivo:', fileErr.message);
+        firebaseInitStatus.error += ` | Falha ao ler arquivo: ${fileErr.message}`;
       }
     }
   }
 
   // Fallback: Application Default Credentials (ADC)
-  admin.initializeApp();
-  console.log('✅ Firebase Admin inicializado com ADC (Application Default Credentials).');
+  try {
+    admin.initializeApp();
+    console.log('✅ Firebase Admin inicializado com ADC (Application Default Credentials).');
+    firebaseInitStatus = { success: true, method: 'adc', error: firebaseInitStatus.error || 'Nenhum JSON fornecido' };
+  } catch (err) {
+    firebaseInitStatus = { success: false, method: 'none', error: `Falha geral no init: ${err.message}` };
+  }
 }
 
 initializeFirebase();
@@ -111,8 +127,7 @@ app.use(cors({
   origin: [
     'http://localhost:5000',
     'http://localhost:3000',
-    'http://127.0.0.1:5000',
-    /\.vercel\.app$/
+    'https://pegafreteadmin.vercel.app'
   ],
   credentials: true
 }));
@@ -153,10 +168,11 @@ async function verifyAdminToken(req, res, next) {
     next();
   } catch (error) {
     console.error('Erro ao verificar token:', error.message);
+    const initInfo = `[Init: ${firebaseInitStatus.method}, Error: ${firebaseInitStatus.error}]`;
     if (error.code === 'auth/id-token-expired') {
-      return res.status(401).json({ error: `Token expirado. ${error.message}` });
+      return res.status(401).json({ error: `Token expirado. ${error.message} ${initInfo}` });
     }
-    return res.status(401).json({ error: `Token inválido: ${error.message}` });
+    return res.status(401).json({ error: `Token inválido: ${error.message} ${initInfo}` });
   }
 }
 
