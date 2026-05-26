@@ -351,19 +351,39 @@ async function loadNotificationsHistory() {
 
             return `
               <div class="p-4 bg-white rounded-lg border border-slate-200 flex justify-between items-start gap-3 shadow-sm hover:shadow transition-shadow">
-                <div class="flex gap-3">
+                <div class="flex gap-3 w-full">
                   <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
                     <i class="ph ph-paper-plane"></i>
                   </div>
-                  <div>
-                    <h4 class="text-sm font-bold text-slate-800">${title}</h4>
+                  <div class="flex-1">
+                    <div class="flex justify-between items-start">
+                      <h4 class="text-sm font-bold text-slate-800">${title}</h4>
+                      <button onclick="deleteNotification('${n.id}')" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors" title="Apagar Mensagem">
+                        <i class="ph ph-trash text-base"></i>
+                      </button>
+                    </div>
                     <p class="text-xs text-slate-600 mt-1">${message}</p>
                     <span class="text-[10px] text-slate-400 mt-2 block">${dateStr} — ${targetStr}</span>
+                    
+                    <div class="mt-3 bg-slate-50 p-2 rounded border border-slate-100">
+                      <div class="flex justify-between text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">
+                        <span>Estatísticas de Engajamento</span>
+                        <span class="${(n.viewPercentage || 0) > 50 ? 'text-green-600' : 'text-orange-500'}">${n.viewPercentage || 0}% Taxa de Abertura</span>
+                      </div>
+                      <div class="flex gap-4 text-[11px] font-medium mt-2">
+                        <div class="flex items-center gap-1 text-slate-600 bg-slate-200/50 px-2 py-0.5 rounded">
+                          <i class="ph-fill ph-users"></i> ${n.sentCount || 0} Enviados
+                        </div>
+                        <div class="flex items-center gap-1 text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-100">
+                          <i class="ph-fill ph-eye"></i> ${n.views || 0} Vistos
+                        </div>
+                        <div class="flex items-center gap-1 text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          <i class="ph-fill ph-eye-closed"></i> ${n.nonViews || 0} Não vistos
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <button onclick="deleteNotification('${n.id}')" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors" title="Apagar Mensagem">
-                  <i class="ph ph-trash text-base"></i>
-                </button>
               </div>`;
         }).join('');
     } catch (e) {

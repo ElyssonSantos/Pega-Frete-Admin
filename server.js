@@ -194,43 +194,7 @@ async function logSecurityEvent(uid, event, details, page = 'admin-panel') {
 
 // ───────────────────────── ROTAS DA API ─────────────────────────
 
-// ── POST /api/admin/setup-claims ──
-// Bootstrap: promove UID para admin usando secret
-app.post('/api/admin/setup-claims', async (req, res) => {
-  try {
-    const { uid, secret } = req.body;
-
-    if (!uid || !secret) {
-      return res.status(400).json({ error: 'Campos uid e secret são obrigatórios.' });
-    }
-
-    if (secret !== process.env.ADMIN_SETUP_SECRET) {
-      return res.status(403).json({ error: 'Secret inválido.' });
-    }
-
-    // Define Custom Claims
-    await auth.setCustomUserClaims(uid, { admin: true });
-
-    // Atualiza role no Firestore
-    const userRef = db.collection('users').doc(uid);
-    const userDoc = await userRef.get();
-    if (userDoc.exists) {
-      await userRef.update({ role: 'admin' });
-    } else {
-      await userRef.set({ role: 'admin', createdAt: admin.firestore.FieldValue.serverTimestamp() });
-    }
-
-    await logSecurityEvent(uid, 'ADMIN_CLAIM_SET', 'Usuário promovido a admin via setup-claims');
-
-    return res.json({
-      success: true,
-      message: `Usuário ${uid} agora é administrador. O usuário deve fazer logout e login novamente para ativar as permissões.`
-    });
-  } catch (error) {
-    console.error('Erro em setup-claims:', error);
-    return res.status(500).json({ error: 'Erro interno ao configurar claims.' });
-  }
-});
+// ── Rota de Setup-claims removida por segurança (Zero Trust) ──
 
 // ── GET /api/admin/stats ──
 app.get('/api/admin/stats', verifyAdminToken, async (req, res) => {
@@ -700,6 +664,35 @@ app.get('/api/admin/notifications', verifyAdminToken, async (req, res) => {
         createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null
       });
     });
+
+    // Populate view statistics
+    await Promise.all(notifications.map(async (notif) => {
+      try {
+        const msgsSnap = await db.collection('system_messages')
+          .where('notificationId', '==', notif.id)
+          .get();
+        
+        let views = 0;
+        let nonViews = 0;
+        
+        msgsSnap.forEach(msgDoc => {
+          if (msgDoc.data().read === true) views++;
+          else nonViews++;
+        });
+        
+        notif.views = views;
+        notif.nonViews = nonViews;
+        
+        const total = views + nonViews;
+        notif.viewPercentage = total > 0 ? Math.round((views / total) * 100) : 0;
+        
+      } catch (err) {
+        console.error('Error fetching stats for notif', notif.id, err);
+        notif.views = 0;
+        notif.nonViews = 0;
+        notif.viewPercentage = 0;
+      }
+    }));
 
     return res.json({ notifications, total: notifications.length });
   } catch (error) {
