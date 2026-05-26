@@ -221,19 +221,80 @@ async function loadPendingDocs() {
 }
 
 async function loadUsersDropdown() {
-    const sel = document.getElementById('notifyTarget');
-    sel.innerHTML = '<option value="all">Todos (Broadcast)</option><option disabled>── Usuário Específico ──</option>';
+    // Agora carrega o histórico de notificações em vez de preencher o select (que agora é estático)
+    await loadNotificationsHistory();
+}
+
+async function loadNotificationsHistory() {
+    const hist = document.getElementById('notifHistory');
+    if (!hist) return;
     try {
         const h = await getHeaders();
-        const resObj = await request(`${API}/users`, { headers: h });
-        const users = resObj.users || [];
-        users.forEach(u => {
-            const opt = document.createElement('option');
-            opt.value = u.uid;
-            opt.innerText = `${u.name||'Sem Nome'} (${u.role==='driver'?'Motorista':'Embarcador'})`;
-            sel.appendChild(opt);
-        });
-    } catch (_) {}
+        const resObj = await request(`${API}/notifications`, { headers: h });
+        const notifications = resObj.notifications || [];
+        
+        if (!notifications.length) {
+            hist.innerHTML = `
+              <div class="p-4 bg-slate-50 rounded-lg border border-slate-100 flex gap-3">
+                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0"><i class="ph ph-info"></i></div>
+                <div>
+                  <h4 class="text-sm font-bold text-slate-800">Sistema</h4>
+                  <p class="text-xs text-slate-600 mt-1">Nenhuma notificação enviada.</p>
+                </div>
+              </div>`;
+            return;
+        }
+
+        hist.innerHTML = notifications.map(n => {
+            let dateStr = '—';
+            if (n.createdAt) {
+                const d = new Date(n.createdAt);
+                dateStr = d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            }
+            
+            let targetStr = 'Privado';
+            if (n.targetUid === 'all') targetStr = 'Todos os Usuários';
+            else if (n.targetUid === 'shippers') targetStr = 'Todos os Embarcadores';
+            else if (n.targetUid === 'drivers') targetStr = 'Todos os Transportadores';
+
+            const title = n.title ? san(n.title) : '<span class="text-slate-400 italic">Sem título</span>';
+            const message = n.message ? san(n.message) : '<span class="text-slate-400 italic">Sem mensagem</span>';
+
+            return `
+              <div class="p-4 bg-white rounded-lg border border-slate-200 flex justify-between items-start gap-3 shadow-sm hover:shadow transition-shadow">
+                <div class="flex gap-3">
+                  <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <i class="ph ph-paper-plane"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-slate-800">${title}</h4>
+                    <p class="text-xs text-slate-600 mt-1">${message}</p>
+                    <span class="text-[10px] text-slate-400 mt-2 block">${dateStr} — ${targetStr}</span>
+                  </div>
+                </div>
+                <button onclick="deleteNotification('${n.id}')" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors" title="Apagar Mensagem">
+                  <i class="ph ph-trash text-base"></i>
+                </button>
+              </div>`;
+        }).join('');
+    } catch (e) {
+        console.error(e);
+        hist.innerHTML = `<div class="p-4 text-center text-red-500 text-sm">Erro ao carregar histórico: ${e.message}</div>`;
+    }
+}
+
+async function deleteNotification(id) {
+    if (!confirm('Deseja realmente apagar esta notificação? Isso removerá a mensagem das caixas de entrada dos destinatários.')) return;
+    try {
+        const h = await getHeaders();
+        const r = await fetch(`${API}/notifications/${id}`, { method: 'DELETE', headers: h });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error);
+        showToast(d.message, 'success');
+        await loadNotificationsHistory();
+    } catch (e) {
+        showToast('Erro ao apagar: ' + e.message, 'error');
+    }
 }
 
 async function loadLogs() {
@@ -301,12 +362,7 @@ async function handleSendNotification(e) {
         showToast(d.message, 'success');
         document.getElementById('notifyTitle').value = '';
         document.getElementById('notifyMessage').value = '';
-        // Add to local history
-        const hist = document.getElementById('notifHistory');
-        const item = document.createElement('div');
-        item.className = 'history-item';
-        item.innerHTML = `<div class="history-icon"><i class="ph ph-paper-plane"></i></div><div class="history-content"><h4>${san(body.title)}</h4><p>${san(body.message)}</p><span class="history-date">Agora — ${body.targetUid==='all'?'Broadcast':'Privado'}</span></div>`;
-        hist.insertBefore(item, hist.firstChild);
+        await loadNotificationsHistory();
     } catch (e) { showToast('Falha: ' + e.message, 'error'); }
     finally { btn.disabled = false; btn.innerHTML = orig; }
 }

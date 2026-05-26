@@ -555,17 +555,30 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
   try {
     const { targetUid, title, message } = req.body;
 
-    if (!targetUid || !title || !message) {
+    if (!targetUid || (!title && !message)) {
       return res.status(400).json({
-        error: 'Campos obrigatórios: targetUid (uid ou "all"), title, message.'
+        error: 'É necessário preencher o destinatário e pelo menos o título ou a mensagem.'
       });
     }
 
-    let sentCount = 0;
+    const tTitle = title ? title.trim() : '';
+    const tMessage = message ? message.trim() : '';
 
-    if (targetUid === 'all') {
-      // Broadcast para todos
-      const usersSnap = await db.collection('users').get();
+    let sentCount = 0;
+    
+    // Criar o documento de histórico de notificações em admin_notifications
+    const notifRef = db.collection('admin_notifications').doc();
+    const notificationId = notifRef.id;
+
+    if (targetUid === 'all' || targetUid === 'shippers' || targetUid === 'drivers') {
+      let usersQuery = db.collection('users');
+      if (targetUid === 'shippers') {
+        usersQuery = usersQuery.where('role', '==', 'shipper');
+      } else if (targetUid === 'drivers') {
+        usersQuery = usersQuery.where('role', '==', 'driver');
+      }
+
+      const usersSnap = await usersQuery.get();
       const batch = db.batch();
       let batchCount = 0;
 
@@ -574,7 +587,6 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
 
       usersSnap.forEach(doc => {
         if (batchCount >= 499) {
-          // Firestore batch limit: 500
           currentBatch = db.batch();
           batches.push(currentBatch);
           batchCount = 0;
@@ -583,10 +595,11 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
         const msgRef = db.collection('system_messages').doc();
         currentBatch.set(msgRef, {
           userUid: doc.id,
-          title,
-          message,
+          title: tTitle,
+          message: tMessage,
           read: false,
-          type: 'admin_broadcast',
+          type: targetUid === 'all' ? 'admin_broadcast' : (targetUid === 'shippers' ? 'admin_shippers_broadcast' : 'admin_drivers_broadcast'),
+          notificationId: notificationId, // Link para permitir exclusão
           createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
         batchCount++;
@@ -600,29 +613,135 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
       // Mensagem individual
       await db.collection('system_messages').add({
         userUid: targetUid,
-        title,
-        message,
+        title: tTitle,
+        message: tMessage,
         read: false,
         type: 'admin_notification',
+        notificationId: notificationId, // Link para permitir exclusão
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
       sentCount = 1;
     }
 
+    // Salva no histórico administrativo
+    await notifRef.set({
+      targetUid,
+      title: tTitle,
+      message: tMessage,
+      sentCount,
+      sentBy: req.user.uid,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
     await logSecurityEvent(
       req.user.uid,
       'NOTIFICATION_SENT',
-      `Admin enviou notificação para ${targetUid === 'all' ? 'todos (' + sentCount + ' usuários)' : targetUid}. Título: ${title}`
+      `Admin enviou notificação para ${targetUid === 'all' ? 'todos (' + sentCount + ' usuários)' : (targetUid === 'shippers' ? 'todos os embarcadores' : (targetUid === 'drivers' ? 'todos os transportadores' : targetUid))}. Título: ${tTitle}`
     );
 
     return res.json({
       success: true,
       message: `Notificação enviada para ${sentCount} usuário(s).`,
-      sentCount
+      sentCount,
+      notification: {
+        id: notificationId,
+        targetUid,
+        title: tTitle,
+        message: tMessage,
+        sentCount,
+        createdAt: new Date().toISOString()
+      }
     });
   } catch (error) {
     console.error('Erro em send notification:', error);
     return res.status(500).json({ error: 'Erro ao enviar notificação.' });
+  }
+});
+
+// ── GET /api/admin/notifications ──
+app.get('/api/admin/notifications', verifyAdminToken, async (req, res) => {
+  try {
+    const snapshot = await db.collection('admin_notifications')
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get();
+
+    const notifications = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      notifications.push({
+        id: doc.id,
+        targetUid: data.targetUid,
+        title: data.title || '',
+        message: data.message || '',
+        sentCount: data.sentCount || 0,
+        sentBy: data.sentBy || '',
+        createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null
+      });
+    });
+
+    return res.json({ notifications, total: notifications.length });
+  } catch (error) {
+    console.error('Erro em get notifications history:', error);
+    return res.status(500).json({ error: 'Erro ao buscar histórico de notificações.' });
+  }
+});
+
+// ── DELETE /api/admin/notifications/:id ──
+app.delete('/api/admin/notifications/:id', verifyAdminToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Remover do admin_notifications
+    const notifRef = db.collection('admin_notifications').doc(id);
+    const notifDoc = await notifRef.get();
+    
+    if (!notifDoc.exists) {
+      return res.status(404).json({ error: 'Notificação não encontrada no histórico.' });
+    }
+
+    const notifData = notifDoc.data();
+
+    // 2. Remover todas as system_messages correspondentes
+    const messagesSnap = await db.collection('system_messages')
+      .where('notificationId', '==', id)
+      .get();
+
+    const batch = db.batch();
+    let batchCount = 0;
+    const batches = [batch];
+    let currentBatch = batch;
+
+    messagesSnap.forEach(doc => {
+      if (batchCount >= 499) {
+        currentBatch = db.batch();
+        batches.push(currentBatch);
+        batchCount = 0;
+      }
+      currentBatch.delete(doc.ref);
+      batchCount++;
+    });
+
+    for (const b of batches) {
+      await b.commit();
+    }
+
+    // 3. Excluir o documento principal do histórico
+    await notifRef.delete();
+
+    await logSecurityEvent(
+      req.user.uid,
+      'NOTIFICATION_DELETED',
+      `Admin removeu a notificação ${id}. Título: ${notifData.title || 'Nenhum'}`
+    );
+
+    return res.json({
+      success: true,
+      message: 'Notificação e mensagens correspondentes apagadas com sucesso.'
+    });
+  } catch (error) {
+    console.error('Erro em delete notification:', error);
+    return res.status(500).json({ error: 'Erro ao apagar notificação.' });
   }
 });
 

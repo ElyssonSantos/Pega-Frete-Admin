@@ -365,16 +365,18 @@
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1">Destinatário</label>
                 <select id="notifyTarget" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none" required>
-                  <option value="all">Todos (Broadcast)</option>
+                  <option value="all">Todos os Usuários</option>
+                  <option value="shippers">Todos os Embarcadores</option>
+                  <option value="drivers">Todos os Transportadores</option>
                 </select>
               </div>
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1">Título</label>
-                <input type="text" id="notifyTitle" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none" placeholder="Ex: Aviso importante" required>
+                <input type="text" id="notifyTitle" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none" placeholder="Ex: Aviso importante (Opcional)">
               </div>
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1">Mensagem</label>
-                <textarea id="notifyMessage" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none min-h-[100px]" placeholder="Detalhes da mensagem..." required></textarea>
+                <textarea id="notifyMessage" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none min-h-[100px]" placeholder="Detalhes da mensagem... (Opcional)"></textarea>
               </div>
               <button type="submit" id="btnSendNotif" class="w-full bg-brand-accent hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg flex justify-center items-center gap-2 transition-colors">
                 <i class="ph ph-paper-plane-tilt text-lg"></i> Enviar Mensagem
@@ -384,13 +386,13 @@
           
           <div class="bg-white rounded-xl border border-slate-200 card-shadow p-6 flex flex-col">
             <h3 class="text-lg font-bold text-brand mb-1">Histórico de Envios</h3>
-            <p class="text-sm text-slate-500 mb-6">Últimas mensagens disparadas na sessão</p>
+            <p class="text-sm text-slate-500 mb-6">Mensagens enviadas pelo sistema administrativo</p>
             <div class="flex-1 overflow-y-auto space-y-3 max-h-[400px]" id="notifHistory">
               <div class="p-4 bg-slate-50 rounded-lg border border-slate-100 flex gap-3">
                 <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0"><i class="ph ph-info"></i></div>
                 <div>
-                  <h4 class="text-sm font-bold text-brand">Sistema</h4>
-                  <p class="text-xs text-slate-600 mt-1">Nenhuma notificação enviada.</p>
+                  <h4 class="text-sm font-bold text-slate-800">Sistema</h4>
+                  <p class="text-xs text-slate-600 mt-1">Carregando histórico...</p>
                 </div>
               </div>
             </div>
