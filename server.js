@@ -143,9 +143,9 @@ async function verifyAdminToken(req, res, next) {
   } catch (error) {
     console.error('Erro ao verificar token:', error.message);
     if (error.code === 'auth/id-token-expired') {
-      return res.status(401).json({ error: 'Token expirado. Faça login novamente.' });
+      return res.status(401).json({ error: `Token expirado. ${error.message}` });
     }
-    return res.status(401).json({ error: 'Token inválido.' });
+    return res.status(401).json({ error: `Token inválido: ${error.message}` });
   }
 }
 

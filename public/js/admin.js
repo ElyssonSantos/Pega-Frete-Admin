@@ -135,15 +135,26 @@ async function loadData(id) {
         else if (id === 'documents') await loadPendingDocs();
         else if (id === 'notifications') await loadUsersDropdown();
         else if (id === 'logs') await loadLogs();
-    } catch (e) { console.error(e); showToast('Erro de comunicação com a API.', 'error'); }
+    } catch (e) { console.error(e); showToast(e.message || 'Erro de comunicação com a API.', 'error'); }
+}
+
+async function request(url, options = {}) {
+    const r = await fetch(url, options);
+    if (!r.ok) {
+        let msg = 'Erro de comunicação com a API.';
+        try {
+            const d = await r.json();
+            if (d && d.error) msg = d.error;
+        } catch {}
+        throw new Error(msg);
+    }
+    return r.json();
 }
 
 // === DATA LOADERS ===
 async function loadStats() {
     const h = await getHeaders();
-    const r = await fetch(`${API}/stats`, { headers: h });
-    if (!r.ok) throw new Error();
-    const d = await r.json();
+    const d = await request(`${API}/stats`, { headers: h });
     document.getElementById('statShippers').innerText = d.shippers || 0;
     document.getElementById('statDrivers').innerText = d.drivers || 0;
     document.getElementById('statPending').innerText = d.pendingDocs || 0;
@@ -157,9 +168,7 @@ async function loadUsers() {
     const h = await getHeaders();
     const role = document.getElementById('roleFilter')?.value || '';
     const url = role ? `${API}/users?role=${role}` : `${API}/users`;
-    const r = await fetch(url, { headers: h });
-    if (!r.ok) throw new Error();
-    const resObj = await r.json();
+    const resObj = await request(url, { headers: h });
     const users = resObj.users || [];
     const tbody = document.getElementById('usersTableBody');
     if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6">Nenhum usuário encontrado.</td></tr>'; return; }
@@ -179,9 +188,7 @@ async function loadUsers() {
 
 async function loadFreights() {
     const h = await getHeaders();
-    const r = await fetch(`${API}/freights`, { headers: h });
-    if (!r.ok) throw new Error();
-    const resObj = await r.json();
+    const resObj = await request(`${API}/freights`, { headers: h });
     const freights = resObj.freights || [];
     const tbody = document.getElementById('freightsTableBody');
     if (!freights.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6">Nenhum frete encontrado.</td></tr>'; return; }
@@ -195,9 +202,7 @@ async function loadFreights() {
 
 async function loadPendingDocs() {
     const h = await getHeaders();
-    const r = await fetch(`${API}/documents/pending`, { headers: h });
-    if (!r.ok) throw new Error();
-    const resObj = await r.json();
+    const resObj = await request(`${API}/documents/pending`, { headers: h });
     pendingUsers = resObj.pending || [];
     const tbody = document.getElementById('docsTableBody');
     if (!pendingUsers.length) {
@@ -220,9 +225,7 @@ async function loadUsersDropdown() {
     sel.innerHTML = '<option value="all">Todos (Broadcast)</option><option disabled>── Usuário Específico ──</option>';
     try {
         const h = await getHeaders();
-        const r = await fetch(`${API}/users`, { headers: h });
-        if (!r.ok) return;
-        const resObj = await r.json();
+        const resObj = await request(`${API}/users`, { headers: h });
         const users = resObj.users || [];
         users.forEach(u => {
             const opt = document.createElement('option');
@@ -235,9 +238,7 @@ async function loadUsersDropdown() {
 
 async function loadLogs() {
     const h = await getHeaders();
-    const r = await fetch(`${API}/logs`, { headers: h });
-    if (!r.ok) throw new Error();
-    const resObj = await r.json();
+    const resObj = await request(`${API}/logs`, { headers: h });
     const logs = resObj.logs || [];
     const tbody = document.getElementById('logsTableBody');
     if (!logs.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6">Sem registros.</td></tr>'; return; }
