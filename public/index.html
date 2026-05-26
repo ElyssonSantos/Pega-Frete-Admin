@@ -80,6 +80,23 @@
         <button type="submit" id="btnLogin" class="w-full bg-brand text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 mt-4 hover:bg-slate-800 transition-colors shadow-md shadow-slate-200">
           Entrar no Painel <i class="ph ph-sign-in text-lg"></i>
         </button>
+
+        <div class="relative my-6 flex items-center justify-center">
+          <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-slate-200"></div>
+          </div>
+          <span class="relative bg-white px-3 text-xs text-slate-400 font-semibold uppercase">Ou acesse com</span>
+        </div>
+
+        <button type="button" id="btnGoogle" onclick="loginComGoogle()" class="w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm text-sm">
+          <svg class="w-5 h-5" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.9h6.69c-.29 1.5-.1.14 1.14 2.37l3.9-3.03c2.28-2.1 3.57-5.17 3.57-8.17z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.97-1.08 7.96-2.91l-3.9-3.03c-1.08.72-2.47 1.16-4.06 1.16-3.13 0-5.78-2.11-6.73-4.96l-4.03 3.12C3.21 21.09 7.29 24 12 24z"/>
+            <path fill="#FBBC05" d="M5.27 14.26c-.25-.72-.39-1.5-.39-2.26s.14-1.54.39-2.26L1.24 6.62C.44 8.23 0 10.06 0 12s.44 3.77 1.24 5.38l4.03-3.12z"/>
+            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.43-3.43C17.96 1.19 15.24 0 12 0 7.29 0 3.21 2.91 1.24 6.62l4.03 3.12c.95-2.85 3.6-4.99 6.73-4.99z"/>
+          </svg>
+          Entrar com Google
+        </button>
       </form>
       
       <div class="mt-6 flex items-start gap-3 bg-orange-50 border border-orange-100 p-4 rounded-xl">

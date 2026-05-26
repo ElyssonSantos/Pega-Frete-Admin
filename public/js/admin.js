@@ -77,6 +77,25 @@ async function handleLogin(e) {
     }
 }
 
+async function loginComGoogle() {
+    const btn = document.getElementById('btnGoogle');
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Conectando...';
+
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+        await auth.signInWithPopup(provider);
+        showToast('Login efetuado! Verificando permissões...', 'info');
+    } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+        if (err.code !== 'auth/popup-closed-by-user') {
+            showToast('Erro ao entrar com Google.', 'error');
+        }
+    }
+}
+
 function logoutAdmin() { auth.signOut().then(() => window.location.href = '/'); }
 function togglePass() {
     const p = document.getElementById('password'), i = document.getElementById('toggleIcon');

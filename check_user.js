@@ -24,7 +24,8 @@ async function checkUser() {
       email: userRecord.email,
       customClaims: userRecord.customClaims,
       displayName: userRecord.displayName,
-      disabled: userRecord.disabled
+      disabled: userRecord.disabled,
+      providers: userRecord.providerData.map(p => p.providerId)
     }, null, 2));
 
     const userDoc = await db.collection('users').doc(userRecord.uid).get();
