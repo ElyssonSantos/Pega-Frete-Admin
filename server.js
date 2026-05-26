@@ -427,7 +427,8 @@ app.put('/api/admin/freights/:id', verifyAdminToken, async (req, res) => {
 
     const allowedFields = [
       'status', 'status_pagamento', 'pagamento_liberado',
-      'obs', 'valor'
+      'obs', 'valor', 'veiculo', 'tipo', 'distancia',
+      'peso', 'volume', 'coleta', 'previsao', 'urgencia'
     ];
 
     const sanitized = {};
@@ -456,6 +457,26 @@ app.put('/api/admin/freights/:id', verifyAdminToken, async (req, res) => {
   } catch (error) {
     console.error('Erro em update freight:', error);
     return res.status(500).json({ error: 'Erro ao atualizar frete.' });
+  }
+});
+
+// ── DELETE /api/admin/freights/:id ──
+app.delete('/api/admin/freights/:id', verifyAdminToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await db.collection('freights').doc(id).delete();
+
+    await logSecurityEvent(
+      req.user.uid,
+      'FREIGHT_DELETED',
+      `Admin removeu o frete ${id}`
+    );
+
+    return res.json({ success: true, message: 'Frete apagado com sucesso.' });
+  } catch (error) {
+    console.error('Erro em delete freight:', error);
+    return res.status(500).json({ error: 'Erro ao apagar frete.' });
   }
 });
 

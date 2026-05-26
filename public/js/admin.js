@@ -186,18 +186,107 @@ async function loadUsers() {
     }).join('');
 }
 
+let currentFreights = [];
+let selectedFreightId = null;
+
 async function loadFreights() {
     const h = await getHeaders();
     const resObj = await request(`${API}/freights`, { headers: h });
-    const freights = resObj.freights || [];
-    const tbody = document.getElementById('freightsTableBody');
-    if (!freights.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6">Nenhum frete encontrado.</td></tr>'; return; }
-    tbody.innerHTML = freights.map(f => `<tr>
-        <td>${san(f.origem)}</td><td>${san(f.destino)}</td><td>R$ ${san(f.valor)}</td>
-        <td>${san(f.tipo)}</td><td>${san(f.veiculo)}</td>
-        <td><span class="badge-inline ${f.status==='concluida'?'badge-green':'badge-orange'}">${san(f.status||'ativa')}</span></td>
-        <td><button class="btn btn-secondary btn-sm" onclick="editFreight('${f.id}')"><i class="ph ph-pencil"></i></button></td>
-    </tr>`).join('');
+    currentFreights = resObj.freights || [];
+    selectedFreightId = null;
+    renderFreightsList();
+}
+
+function renderFreightsList() {
+    const container = document.getElementById('freightsListContainer');
+    if (!container) return;
+    
+    if (!currentFreights.length) { 
+        container.innerHTML = '<div class="text-center py-8 text-slate-500">Nenhum frete encontrado.</div>'; 
+        return; 
+    }
+    
+    container.innerHTML = currentFreights.map(f => {
+        const isSelected = f.id === selectedFreightId;
+        const borderClass = isSelected ? 'border-l-blue-600 bg-blue-50/50' : 'border-l-transparent hover:bg-slate-50';
+        
+        let statusColor = 'bg-yellow-100 text-yellow-700';
+        let statusText = 'Pendente';
+        if (f.status === 'concluida' || f.status === 'entregue') {
+            statusColor = 'bg-green-100 text-green-700';
+            statusText = 'Entregue';
+        } else if (f.status === 'em_andamento') {
+            statusColor = 'bg-blue-100 text-blue-700';
+            statusText = 'Em Andamento';
+        } else if (f.status === 'cancelada') {
+            statusColor = 'bg-red-100 text-red-700';
+            statusText = 'Cancelada';
+        }
+
+        const dateStr = f.createdAt ? new Date(f.createdAt).toLocaleDateString() : '';
+
+        return `
+            <div onclick="selectFreight('${f.id}')" class="p-4 border-b border-slate-50 cursor-pointer transition-colors border-l-4 ${borderClass}">
+              <div class="flex justify-between items-start mb-1">
+                <span class="text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-slate-500'} uppercase">${san(f.veiculo)} • ${san(f.tipo)}</span>
+                <span class="text-xs font-bold text-slate-900">R$ ${san(f.valor)}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <div class="flex items-center gap-2">
+                  <div class="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                  <span class="text-sm font-medium text-slate-700 truncate">${san(f.origem)}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                  <span class="text-sm font-medium text-slate-700 truncate">${san(f.destino)}</span>
+                </div>
+              </div>
+              <div class="mt-3 flex justify-between items-center">
+                <span class="text-[10px] ${statusColor} px-2 py-0.5 rounded font-bold uppercase">${statusText}</span>
+                <span class="text-[10px] text-slate-400">${dateStr}</span>
+              </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function selectFreight(id) {
+    selectedFreightId = id;
+    renderFreightsList();
+    
+    const freight = currentFreights.find(f => f.id === id);
+    if (!freight) return;
+
+    document.getElementById('freightEmptyState').style.display = 'none';
+    document.getElementById('freightDetailsContainer').style.display = 'flex';
+
+    document.getElementById('detailRoute').innerText = `${san(freight.origem)} → ${san(freight.destino)}`;
+    document.getElementById('detailRef').innerText = `Ref: #${freight.id.substring(0, 8).toUpperCase()}`;
+    
+    document.getElementById('detailValue').innerText = `R$ ${san(freight.valor)}`;
+    document.getElementById('detailVehicle').innerText = san(freight.veiculo);
+    document.getElementById('detailType').innerText = san(freight.tipo);
+    
+    document.getElementById('detailDistance').innerText = freight.distancia ? `${san(freight.distancia)} km` : '---';
+    document.getElementById('detailOrigin').innerText = san(freight.origem);
+    document.getElementById('detailDestination').innerText = san(freight.destino);
+    
+    document.getElementById('detailCommodity').innerText = san(freight.mercadoria || 'Diversos');
+    document.getElementById('detailWeight').innerText = freight.peso ? `${san(freight.peso)} kg` : '---';
+    document.getElementById('detailVolume').innerText = freight.volume ? `${san(freight.volume)} m³` : '---';
+    
+    document.getElementById('detailCollection').innerText = freight.coleta ? san(freight.coleta) : '---';
+    document.getElementById('detailDelivery').innerText = freight.previsao ? san(freight.previsao) : '---';
+    
+    let urgText = 'NORMAL';
+    let urgClass = 'bg-blue-50 text-blue-600';
+    if (freight.urgencia === 'alta' || freight.urgencia === 'Alta') { urgText = 'ALTA'; urgClass = 'bg-red-50 text-red-600'; }
+    else if (freight.urgencia === 'media' || freight.urgencia === 'Média') { urgText = 'MÉDIA'; urgClass = 'bg-orange-50 text-orange-600'; }
+    else if (freight.urgencia === 'baixa' || freight.urgencia === 'Baixa') { urgText = 'BAIXA'; urgClass = 'bg-slate-50 text-slate-600'; }
+    
+    const urgEl = document.getElementById('detailUrgency');
+    urgEl.innerText = urgText;
+    urgEl.className = `text-xs px-2 py-0.5 rounded font-bold ${urgClass}`;
 }
 
 async function loadPendingDocs() {
@@ -402,8 +491,29 @@ async function editUser(uid) {
     } catch (e) { showToast('Erro: '+e.message, 'error'); }
 }
 
-async function editFreight(id) {
-    const field = prompt('Campo a editar (status, status_pagamento, pagamento_liberado, obs):');
+async function deleteSelectedFreight() {
+    if (!selectedFreightId) return;
+    if (!confirm('Deseja realmente apagar este frete? Esta ação não pode ser desfeita.')) return;
+    try {
+        const h = await getHeaders();
+        const r = await fetch(`${API}/freights/${selectedFreightId}`, { method: 'DELETE', headers: h });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error);
+        showToast(d.message, 'success');
+        document.getElementById('freightEmptyState').style.display = 'flex';
+        document.getElementById('freightDetailsContainer').style.display = 'none';
+        loadFreights();
+    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+async function changeFreightStatus() {
+    if (!selectedFreightId) return;
+    editFreight(selectedFreightId);
+}
+
+async function editFreight(id = selectedFreightId) {
+    if (!id) return;
+    const field = prompt('Campo a editar (status, valor, veiculo, tipo, distancia, peso, volume, coleta, previsao, urgencia, obs):');
     if (!field) return;
     const value = prompt(`Novo valor para "${field}":`);
     if (value === null) return;
@@ -413,7 +523,8 @@ async function editFreight(id) {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error);
         showToast(d.message, 'success');
-        loadFreights();
+        await loadFreights();
+        if (selectedFreightId === id) selectFreight(id);
     } catch (e) { showToast('Erro: '+e.message, 'error'); }
 }
 
