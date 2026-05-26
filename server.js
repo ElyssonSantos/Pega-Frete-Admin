@@ -86,12 +86,14 @@ app.use(helmet({
         "https://*.firebaseapp.com",
         "https://identitytoolkit.googleapis.com",
         "https://securetoken.googleapis.com",
-        "wss://*.firebaseio.com"
+        "wss://*.firebaseio.com",
+        "https://www.gstatic.com"
       ],
       frameSrc: ["'self'", "https://*.firebaseapp.com"]
     }
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
 }));
 
 app.use(cors({
