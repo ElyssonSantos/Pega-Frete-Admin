@@ -140,7 +140,8 @@ async function loadUsers() {
     const url = role ? `${API}/users?role=${role}` : `${API}/users`;
     const r = await fetch(url, { headers: h });
     if (!r.ok) throw new Error();
-    const users = await r.json();
+    const resObj = await r.json();
+    const users = resObj.users || [];
     const tbody = document.getElementById('usersTableBody');
     if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6">Nenhum usuário encontrado.</td></tr>'; return; }
     tbody.innerHTML = users.map(u => {
@@ -161,7 +162,8 @@ async function loadFreights() {
     const h = await getHeaders();
     const r = await fetch(`${API}/freights`, { headers: h });
     if (!r.ok) throw new Error();
-    const freights = await r.json();
+    const resObj = await r.json();
+    const freights = resObj.freights || [];
     const tbody = document.getElementById('freightsTableBody');
     if (!freights.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6">Nenhum frete encontrado.</td></tr>'; return; }
     tbody.innerHTML = freights.map(f => `<tr>
@@ -176,7 +178,8 @@ async function loadPendingDocs() {
     const h = await getHeaders();
     const r = await fetch(`${API}/documents/pending`, { headers: h });
     if (!r.ok) throw new Error();
-    pendingUsers = await r.json();
+    const resObj = await r.json();
+    pendingUsers = resObj.pending || [];
     const tbody = document.getElementById('docsTableBody');
     if (!pendingUsers.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6"><i class="ph ph-check-circle" style="font-size:32px;color:var(--success)"></i><p class="mt-2" style="font-weight:700">Nenhum documento pendente!</p></td></tr>';
@@ -200,7 +203,8 @@ async function loadUsersDropdown() {
         const h = await getHeaders();
         const r = await fetch(`${API}/users`, { headers: h });
         if (!r.ok) return;
-        const users = await r.json();
+        const resObj = await r.json();
+        const users = resObj.users || [];
         users.forEach(u => {
             const opt = document.createElement('option');
             opt.value = u.uid;
@@ -214,7 +218,8 @@ async function loadLogs() {
     const h = await getHeaders();
     const r = await fetch(`${API}/logs`, { headers: h });
     if (!r.ok) throw new Error();
-    const logs = await r.json();
+    const resObj = await r.json();
+    const logs = resObj.logs || [];
     const tbody = document.getElementById('logsTableBody');
     if (!logs.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6">Sem registros.</td></tr>'; return; }
     tbody.innerHTML = logs.map(l => {
