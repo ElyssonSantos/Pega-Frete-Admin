@@ -17,16 +17,27 @@ const admin = require('firebase-admin');
 // ───────────────────────── Firebase Admin Init ─────────────────────────
 
 function initializeFirebase() {
-  const credentialEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  let credentialEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
   if (credentialEnv) {
     try {
-      // Tenta parsear como JSON string
+      // Remove aspas externas extras se existirem
+      if (credentialEnv.startsWith('"') && credentialEnv.endsWith('"')) {
+        credentialEnv = credentialEnv.slice(1, -1);
+      }
+      if (credentialEnv.startsWith("'") && credentialEnv.endsWith("'")) {
+        credentialEnv = credentialEnv.slice(1, -1);
+      }
+
       const parsed = JSON.parse(credentialEnv);
+      if (parsed.private_key) {
+        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+      }
       admin.initializeApp({ credential: admin.credential.cert(parsed) });
       console.log('✅ Firebase Admin inicializado com JSON da env.');
       return;
-    } catch {
+    } catch (parseErr) {
+      console.error('⚠️  Falha ao parsear JSON da env:', parseErr.message);
       // Se falhar, tenta como caminho de arquivo
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
