@@ -196,6 +196,33 @@ async function logSecurityEvent(uid, event, details, page = 'admin-panel') {
 
 // ── Rota de Setup-claims removida por segurança (Zero Trust) ──
 
+// ── GET /api/admin/settings ──
+app.get('/api/admin/settings', verifyAdminToken, async (req, res) => {
+  try {
+    const doc = await db.collection('settings').doc('system_config').get();
+    if (!doc.exists) {
+      return res.json({ settings: { autoApproveDrivers: false } });
+    }
+    return res.json({ settings: doc.data() });
+  } catch (error) {
+    console.error('Erro em settings:', error);
+    return res.status(500).json({ error: 'Erro ao buscar configurações.' });
+  }
+});
+
+// ── POST /api/admin/settings ──
+app.post('/api/admin/settings', verifyAdminToken, async (req, res) => {
+  try {
+    const { autoApproveDrivers } = req.body;
+    await db.collection('settings').doc('system_config').set({ autoApproveDrivers }, { merge: true });
+    await logSecurityEvent(req.user.uid, 'SETTINGS_UPDATE', `Aprovação Automática: ${autoApproveDrivers}`);
+    return res.json({ message: 'Configurações salvas com sucesso.' });
+  } catch (error) {
+    console.error('Erro ao salvar settings:', error);
+    return res.status(500).json({ error: 'Erro ao salvar configurações.' });
+  }
+});
+
 // ── GET /api/admin/stats ──
 app.get('/api/admin/stats', verifyAdminToken, async (req, res) => {
   try {

@@ -135,6 +135,7 @@ async function loadData(id) {
         else if (id === 'documents') await loadPendingDocs();
         else if (id === 'notifications') await loadUsersDropdown();
         else if (id === 'logs') await loadLogs();
+        else if (id === 'settings') await loadSettings();
     } catch (e) { console.error(e); showToast(e.message || 'Erro de comunicação com a API.', 'error'); }
 }
 
@@ -592,6 +593,54 @@ async function changeFreightStatus() {
     if (!selectedFreightId) return;
     editFreight(selectedFreightId);
 }
+
+// === SETTINGS ===
+async function loadSettings() {
+    try {
+        const h = await getHeaders();
+        const resObj = await request(`${API}/settings`, { headers: h });
+        const isAuto = resObj.settings?.autoApproveDrivers || false;
+        
+        const toggle = document.getElementById('toggleAutoApproval');
+        const badge = document.getElementById('autoApprovalBadge');
+        
+        if (toggle) toggle.checked = isAuto;
+        if (badge) {
+            badge.innerText = isAuto ? 'Ativado' : 'Desativado';
+            badge.className = isAuto ? 'bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider' : 'bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider';
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Erro ao carregar configurações globais.', 'error');
+    }
+}
+
+async function updateAutoApproval(checked) {
+    try {
+        const h = await getHeaders();
+        const resObj = await fetch(`${API}/settings`, {
+            method: 'POST',
+            headers: h,
+            body: JSON.stringify({ autoApproveDrivers: checked })
+        });
+        
+        if (!resObj.ok) throw new Error('Falha ao atualizar configuração');
+        
+        const badge = document.getElementById('autoApprovalBadge');
+        if (badge) {
+            badge.innerText = checked ? 'Ativado' : 'Desativado';
+            badge.className = checked ? 'bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider' : 'bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider';
+        }
+        
+        showToast(`Aprovação Automática ${checked ? 'ativada' : 'desativada'} com sucesso!`, 'success');
+    } catch (e) {
+        console.error(e);
+        showToast('Erro ao salvar configuração.', 'error');
+        // Revert toggle
+        document.getElementById('toggleAutoApproval').checked = !checked;
+    }
+}
+window.updateAutoApproval = updateAutoApproval;
 
 async function editFreight(id = selectedFreightId) {
     if (!id) return;

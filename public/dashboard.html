@@ -126,6 +126,9 @@
       <a class="nav-link flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-brand rounded-lg transition-colors font-medium" href="#logs" onclick="switchSection('logs')">
         <i class="ph ph-shield-warning text-lg"></i> Logs de Segurança
       </a>
+      <a class="nav-link flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-brand rounded-lg transition-colors font-medium" href="#settings" onclick="switchSection('settings')">
+        <i class="ph ph-gear text-lg"></i> Configurações
+      </a>
     </nav>
 
     <!-- Sidebar Footer -->
@@ -533,6 +536,33 @@
         </div>
       </section>
 
+      <!-- === SECTION: SETTINGS === -->
+      <section id="section-settings" class="dashboard-section">
+        <div class="bg-white rounded-xl border border-slate-200 card-shadow max-w-2xl mx-auto overflow-hidden">
+          <div class="px-6 py-5 border-b border-slate-100 bg-slate-50">
+            <h3 class="text-lg font-bold text-brand flex items-center gap-2">
+              <i class="ph ph-gear text-blue-600"></i> Configurações do Sistema
+            </h3>
+            <p class="text-sm text-slate-500">Gerenciamento global de parâmetros da plataforma</p>
+          </div>
+          <div class="p-6 space-y-6">
+            <div class="flex items-start justify-between">
+              <div>
+                <h4 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                  Aprovação Automática de Transportadores
+                  <span id="autoApprovalBadge" class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Desativado</span>
+                </h4>
+                <p class="text-sm text-slate-500 mt-1 max-w-lg">Quando ativado, os motoristas recebem aprovação automática no momento do cadastro. O envio de documentos CNH/RNTRC se torna opcional e as funcionalidades são liberadas imediatamente. <strong class="text-brand">Use com cuidado apenas em ambientes de teste ou homologação.</strong></p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer mt-1">
+                <input type="checkbox" id="toggleAutoApproval" class="sr-only peer" onchange="updateAutoApproval(this.checked)">
+                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- === SECTION: SETUP === -->
       <section id="section-setup" class="dashboard-section">
         <div class="bg-white rounded-xl border border-slate-200 card-shadow max-w-xl mx-auto overflow-hidden">
@@ -595,12 +625,24 @@
                       <h3 class="text-xl font-bold text-brand mb-4" id="docName">—</h3>
                       <div class="space-y-3 mb-6">
                           <div class="flex justify-between border-b border-slate-100 pb-2">
-                              <span class="text-slate-500 text-sm">CPF/CNPJ:</span>
-                              <strong class="text-brand text-sm" id="docCpf">—</strong>
+                              <span class="text-slate-500 text-sm">Telefone:</span>
+                              <strong class="text-brand text-sm" id="docPhone">—</strong>
                           </div>
                           <div class="flex justify-between border-b border-slate-100 pb-2">
                               <span class="text-slate-500 text-sm">Veículo:</span>
                               <strong class="text-brand text-sm" id="docVehicle">—</strong>
+                          </div>
+                          <div class="flex justify-between border-b border-slate-100 pb-2">
+                              <span class="text-slate-500 text-sm">ANTT/RNTRC:</span>
+                              <strong class="text-brand text-sm" id="docAntt">—</strong>
+                          </div>
+                          <div class="flex justify-between border-b border-slate-100 pb-2">
+                              <span class="text-slate-500 text-sm">CNH:</span>
+                              <strong class="text-brand text-sm" id="docCnhLabel">—</strong>
+                          </div>
+                          <div class="flex justify-between border-b border-slate-100 pb-2">
+                              <span class="text-slate-500 text-sm">Placa:</span>
+                              <strong class="text-brand text-sm" id="docPlaca">—</strong>
                           </div>
                       </div>
                       
