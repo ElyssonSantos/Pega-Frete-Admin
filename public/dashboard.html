@@ -537,22 +537,41 @@
       <section id="section-setup" class="dashboard-section">
         <div class="bg-white rounded-xl border border-slate-200 card-shadow max-w-xl mx-auto overflow-hidden">
           <div class="px-6 py-5 border-b border-slate-100 bg-slate-50">
-            <h3 class="text-lg font-bold text-brand">Configurar Novo Admin</h3>
-            <p class="text-sm text-slate-500">Conceda permissão via UID do Firebase</p>
+            <h3 class="text-lg font-bold text-brand flex items-center gap-2">
+              <i class="ph ph-shield-check text-blue-600"></i> Configurar Novo Admin
+            </h3>
+            <p class="text-sm text-slate-500">Fluxo seguro seguindo padrão Zero Trust</p>
           </div>
-          <form id="setupForm" onsubmit="handleSetupClaims(event)" class="p-6 space-y-5">
-            <div>
-              <label class="block text-sm font-semibold text-slate-700 mb-1">UID do Usuário</label>
-              <input type="text" id="setupUid" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-accent outline-none" placeholder="Ex: UID copiado do Console..." required>
+          <div class="p-6 space-y-6 text-slate-600">
+            <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 flex gap-3 text-sm text-blue-800">
+              <i class="ph-fill ph-info text-lg shrink-0 mt-0.5"></i>
+              <div>
+                <p class="font-semibold">Rota pública desativada por segurança</p>
+                <p class="mt-1 text-xs text-blue-700 leading-relaxed">
+                  Para impedir ataques de escalação de privilégios, a API pública de promoção de administradores foi completamente desativada. As promoções agora devem ser feitas diretamente no terminal local usando as credenciais privadas do servidor.
+                </p>
+              </div>
             </div>
-            <div>
-              <label class="block text-sm font-semibold text-slate-700 mb-1">Secret Key (Setup)</label>
-              <input type="password" id="setupSecret" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-accent outline-none" placeholder="••••••••" required>
+
+            <div class="space-y-3">
+              <h4 class="text-sm font-bold text-slate-800">Como promover um usuário:</h4>
+              <p class="text-xs">Abra o terminal na pasta do projeto administrativo e execute o script local:</p>
+              
+              <div class="bg-slate-950 text-slate-200 p-4 rounded-lg font-mono text-xs overflow-x-auto shadow-inner">
+                <code>node set_admin.js "usuario@email.com"</code>
+              </div>
+              
+              <p class="text-xs text-slate-400">Ou use o UID do Firebase:</p>
+              <div class="bg-slate-950 text-slate-200 p-4 rounded-lg font-mono text-xs overflow-x-auto shadow-inner">
+                <code>node set_admin.js "UID_DO_USUARIO"</code>
+              </div>
             </div>
-            <button type="submit" id="btnSetup" class="w-full bg-brand hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-lg flex justify-center items-center gap-2 transition-colors mt-2">
-              <i class="ph ph-shield-check"></i> Promover a Administrador
-            </button>
-          </form>
+            
+            <div class="border-t border-slate-100 pt-4 flex items-center justify-between text-xs text-slate-400">
+              <span>Arquivo de automação: <code>set_admin.js</code></span>
+              <span class="text-green-600 font-medium">● Execução Local</span>
+            </div>
+          </div>
         </div>
       </section>
 

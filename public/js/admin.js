@@ -477,23 +477,6 @@ async function handleSendNotification(e) {
 }
 
 // === SETUP CLAIMS ===
-async function handleSetupClaims(e) {
-    e.preventDefault();
-    const btn = document.getElementById('btnSetup'), orig = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Processando...';
-    try {
-        const r = await fetch(`${window.location.origin}/api/admin/setup-claims`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid: document.getElementById('setupUid').value.trim(), secret: document.getElementById('setupSecret').value })
-        });
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error);
-        showToast(d.message, 'success');
-        document.getElementById('setupUid').value = '';
-        document.getElementById('setupSecret').value = '';
-    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
-    finally { btn.disabled = false; btn.innerHTML = orig; }
-}
 
 // === EDIT STUBS (prompt user via browser prompt for simplicity) ===
 async function editUser(uid) {
