@@ -211,7 +211,7 @@ app.get('/api/admin/stats', verifyAdminToken, async (req, res) => {
       const data = doc.data();
       if (data.role === 'shipper') shippers++;
       else if (data.role === 'driver') drivers++;
-      if (data.documentStatus === 'pending') pendingDocs++;
+      if (data.documentStatus === 'pending' || data.docStatus === 'Pendente' || data.docStatus === 'Em Análise') pendingDocs++;
     });
 
     // Contagem de fretes por status
@@ -233,6 +233,82 @@ app.get('/api/admin/stats', verifyAdminToken, async (req, res) => {
   } catch (error) {
     console.error('Erro em stats:', error);
     return res.status(500).json({ error: 'Erro ao buscar estatísticas.' });
+  }
+});
+
+// ── GET /api/admin/pending-docs ──
+app.get('/api/admin/pending-docs', verifyAdminToken, async (req, res) => {
+  try {
+    const snapshot = await db.collection('users').where('role', '==', 'driver').get();
+    const pendingUsers = [];
+
+    snapshot.forEach(doc => {
+      const u = doc.data();
+      if (u.docStatus === 'Pendente' || u.docStatus === 'Em Análise' || u.documentStatus === 'pending') {
+        pendingUsers.push({
+          uid: doc.id,
+          name: u.nome || u.name,
+          email: u.email,
+          phone: u.telefone || u.phone,
+          city: u.endereco || u.city,
+          vehicle: u.veiculo || u.vehicle,
+          antt: u.antt || 'Não informado',
+          cnh: u.cnh || 'Não informado',
+          placa: u.placa || 'Não informado',
+          docStatus: u.docStatus || u.documentStatus,
+          documentUrls: u.documentUrls || {}
+        });
+      }
+    });
+
+    return res.json({ pendingDocs: pendingUsers });
+  } catch (error) {
+    console.error('Erro em pending-docs:', error);
+    return res.status(500).json({ error: 'Erro ao buscar documentos pendentes.' });
+  }
+});
+
+// ── POST /api/admin/docs/:uid/status ──
+app.post('/api/admin/docs/:uid/status', verifyAdminToken, async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { status, reason } = req.body;
+    
+    if (!['Aprovado', 'Reprovado', 'Bloqueado'].includes(status)) {
+      return res.status(400).json({ error: 'Status inválido.' });
+    }
+
+    const updateData = { docStatus: status };
+    if (reason) updateData.rejectionReason = reason;
+
+    await db.collection('users').doc(uid).update(updateData);
+    await logSecurityEvent(req.user.uid, 'DOC_STATUS_CHANGE', `Atualizou documentação de ${uid} para ${status}`);
+
+    // Enviar notificação in-app
+    let notificationText = '';
+    if (status === 'Aprovado') {
+      notificationText = 'Boas notícias! Seus documentos foram validados e aprovados. Você agora tem acesso total para aceitar cargas e negociar fretes.';
+    } else if (status === 'Reprovado') {
+      notificationText = `Atenção: Houve um problema na validação da sua documentação. Motivo: ${reason || 'Não informado.'} Acesse seu perfil para reenviar.`;
+    } else if (status === 'Bloqueado') {
+      notificationText = 'Sua conta foi bloqueada devido a irregularidades na documentação. Entre em contato com o suporte para mais detalhes.';
+    }
+
+    if (notificationText) {
+      await db.collection('system_messages').add({
+        userUid: uid,
+        text: notificationText,
+        sender: "Pega Frete",
+        isMe: false,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    return res.json({ message: 'Status atualizado com sucesso.' });
+  } catch (error) {
+    console.error('Erro ao atualizar status:', error);
+    return res.status(500).json({ error: 'Erro ao atualizar status do documento.' });
   }
 });
 

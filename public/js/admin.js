@@ -291,8 +291,8 @@ function selectFreight(id) {
 
 async function loadPendingDocs() {
     const h = await getHeaders();
-    const resObj = await request(`${API}/documents/pending`, { headers: h });
-    pendingUsers = resObj.pending || [];
+    const resObj = await request(`${API}/pending-docs`, { headers: h });
+    pendingUsers = resObj.pendingDocs || [];
     const tbody = document.getElementById('docsTableBody');
     if (!pendingUsers.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6"><i class="ph ph-check-circle" style="font-size:32px;color:var(--success)"></i><p class="mt-2" style="font-weight:700">Nenhum documento pendente!</p></td></tr>';
@@ -302,11 +302,90 @@ async function loadPendingDocs() {
         const init = u.name ? u.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() : 'U';
         return `<tr>
             <td><div class="table-user"><div class="user-initials">${init}</div><span class="user-meta-name">${san(u.name)}</span></div></td>
-            <td>${san(u.email)}</td><td>${san(u.phone||'—')}</td><td>${san(u.address||'—')}</td>
-            <td><span class="badge-inline badge-purple">${san(u.vehicle||'Doc')}</span></td>
+            <td>${san(u.email)}</td><td>${san(u.phone||'—')}</td><td>${san(u.city||'—')} - ${san(u.vehicle||'—')}</td>
+            <td><span class="badge-inline badge-purple">${san(u.docStatus||'Pendente')}</span></td>
             <td><button class="btn btn-secondary btn-sm" onclick="inspectDoc('${u.uid}')">Analisar <i class="ph ph-magnifying-glass"></i></button></td>
         </tr>`;
     }).join('');
+}
+
+function inspectDoc(uid) {
+    const u = pendingUsers.find(p => p.uid === uid);
+    if (!u) return;
+    inspectedUser = u;
+
+    document.getElementById('docModal').classList.add('active');
+    document.getElementById('docName').innerText = san(u.name);
+    document.getElementById('docPhone').innerText = san(u.phone || 'Não informado');
+    document.getElementById('docVehicle').innerText = san(u.vehicle || 'Não informado');
+    document.getElementById('docAntt').innerText = san(u.antt || 'Não informado');
+    document.getElementById('docCnhLabel').innerText = san(u.cnh || 'Não informado');
+    document.getElementById('docPlaca').innerText = san(u.placa || 'Não informado');
+
+    const docUrls = u.documentUrls || {};
+    const frame = document.getElementById('docFrame');
+    
+    if (docUrls.cnh) {
+        let imagesHtml = `<div style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 4px; position: relative; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <span style="position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; background: rgba(255,255,255,0.95); padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); z-index: 2;">CNH / RNTRC</span>
+            <img src="${docUrls.cnh}" style="width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; border-radius: 4px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('${docUrls.cnh}')" title="Clique para ampliar CNH">
+        </div>`;
+        if (docUrls.id) {
+            imagesHtml += `<div style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 4px; position: relative; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                <span style="position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; background: rgba(255,255,255,0.95); padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); z-index: 2;">Doc / Veículo</span>
+                <img src="${docUrls.id}" style="width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; border-radius: 4px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('${docUrls.id}')" title="Clique para ampliar Identificação">
+            </div>`;
+        }
+        frame.innerHTML = `<div style="display: flex; flex-direction: ${docUrls.id ? 'row' : 'column'}; gap: 12px; width: 100%; height: 100%; padding: 12px; background: #f8fafc; border-radius: inherit;">${imagesHtml}</div>`;
+    } else {
+        frame.innerHTML = `<div class="text-slate-500 text-sm flex flex-col items-center justify-center h-full w-full bg-slate-50"><i class="ph ph-file-dashed text-4xl mb-2 text-slate-300"></i><span class="font-medium text-slate-400">Sem imagem disponível</span></div>`;
+    }
+    
+    toggleReject(false);
+}
+
+function closeDocModal() {
+    document.getElementById('docModal').classList.remove('active');
+    inspectedUser = null;
+}
+
+function toggleReject(show) {
+    const rejectArea = document.getElementById('rejectArea');
+    if (rejectArea) rejectArea.style.display = show ? 'block' : 'none';
+}
+
+async function verifyDoc(action) {
+    if (!inspectedUser) return;
+    
+    let status = action === 'verified' ? 'Aprovado' : 'Reprovado';
+    let reason = '';
+    
+    if (status === 'Reprovado') {
+        reason = document.getElementById('rejectReason').value.trim();
+        if (!reason) {
+            showToast('Informe o motivo da rejeição.', 'error');
+            return;
+        }
+    }
+    
+    try {
+        const h = await getHeaders();
+        const response = await fetch(`${API}/docs/${inspectedUser.uid}/status`, {
+            method: 'POST',
+            headers: h,
+            body: JSON.stringify({ status, reason })
+        });
+        
+        if (!response.ok) throw new Error('Falha ao atualizar status');
+        
+        showToast(`Documentação ${status}`, 'success');
+        closeDocModal();
+        await loadPendingDocs();
+        
+    } catch (err) {
+        console.error(err);
+        showToast('Erro ao validar documento.', 'error');
+    }
 }
 
 async function loadUsersDropdown() {
