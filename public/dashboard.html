@@ -433,30 +433,117 @@
       </section>
 
       <!-- === SECTION: DOCUMENTS === -->
-      <section id="section-documents" class="dashboard-section">
-        <div class="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-          <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 class="text-lg font-bold text-brand">Fila de Validação de Documentos</h3>
-              <p class="text-sm text-slate-500">Verifique os documentos</p>
-            </div>
-            <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold" id="verifyCount">0 Pendentes</span>
+      <!-- === SECTION: DOCUMENTS === -->
+      <section id="section-documents" class="dashboard-section bg-[#f8f9fb] p-0 md:p-0">
+        
+        <!-- Top Action Bar -->
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
+          <div class="relative w-full md:w-96">
+            <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+            <input type="text" id="docSearchInput" placeholder="Search by Document ID, Carrier, or Plate..." class="w-full pl-10 pr-4 py-2 bg-white border border-[#DFE1E6] rounded text-sm text-[#172B4D] focus:outline-none focus:border-[#003d9b] focus:ring-1 focus:ring-[#003d9b] transition-all">
           </div>
+          
+          <div class="flex items-center gap-3">
+            <button class="w-10 h-10 flex items-center justify-center rounded border border-[#DFE1E6] bg-white text-[#172B4D] hover:bg-gray-50"><i class="ph ph-question text-lg"></i></button>
+            <button class="w-10 h-10 flex items-center justify-center rounded border border-[#DFE1E6] bg-white text-[#172B4D] hover:bg-gray-50"><i class="ph ph-gear text-lg"></i></button>
+          </div>
+        </div>
+
+        <!-- Tabs & Filters -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div class="flex bg-white rounded border border-[#DFE1E6] p-1 shadow-sm">
+            <button class="px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[#003d9b] border-b-2 border-[#003d9b]">All Docs</button>
+            <button class="px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[#737685] hover:text-[#172B4D]">Pending</button>
+            <button class="px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[#737685] hover:text-[#172B4D]">Verified</button>
+          </div>
+          
+          <div class="flex items-center gap-4 text-sm font-medium text-[#737685]">
+            <div class="flex items-center gap-2">
+              <span class="uppercase text-[11px] font-bold">Filter By:</span>
+              <span class="text-[#172B4D] flex items-center gap-1 cursor-pointer">Today <i class="ph ph-caret-down"></i></span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[#172B4D] flex items-center gap-1 cursor-pointer">All Carriers <i class="ph ph-caret-down"></i></span>
+            </div>
+            <button class="ml-2 px-4 py-2 bg-white border border-[#DFE1E6] rounded text-xs font-bold text-[#172B4D] flex items-center gap-2 shadow-sm hover:bg-gray-50">
+              <i class="ph ph-download-simple"></i> EXPORT CSV
+            </button>
+            <button class="w-8 h-8 flex items-center justify-center bg-white border border-[#DFE1E6] rounded shadow-sm hover:bg-gray-50 text-[#172B4D]">
+              <i class="ph ph-dots-three-vertical"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white border border-[#DFE1E6] rounded p-4 shadow-sm flex items-center gap-4">
+            <div class="w-10 h-10 rounded bg-[#f3f4f6] text-[#003d9b] flex items-center justify-center border border-[#DFE1E6]">
+              <i class="ph ph-chart-bar text-xl"></i>
+            </div>
+            <div>
+              <p class="text-[10px] font-bold text-[#737685] uppercase tracking-wider">Total Active</p>
+              <p class="text-xl font-bold text-[#172B4D]" id="docsTotalActive">0</p>
+            </div>
+          </div>
+          <div class="bg-white border border-[#DFE1E6] rounded p-4 shadow-sm flex items-center gap-4">
+            <div class="w-10 h-10 rounded bg-orange-50 text-orange-500 flex items-center justify-center border border-orange-100">
+              <i class="ph ph-hourglass-high text-xl"></i>
+            </div>
+            <div>
+              <p class="text-[10px] font-bold text-[#737685] uppercase tracking-wider">Pending Approval</p>
+              <p class="text-xl font-bold text-[#172B4D]" id="docsPendingCount">0</p>
+            </div>
+          </div>
+          <div class="bg-white border border-[#DFE1E6] rounded p-4 shadow-sm flex items-center gap-4">
+            <div class="w-10 h-10 rounded bg-green-50 text-[#36B37E] flex items-center justify-center border border-green-100">
+              <i class="ph ph-check-circle text-xl"></i>
+            </div>
+            <div>
+              <p class="text-[10px] font-bold text-[#737685] uppercase tracking-wider">Verified Today</p>
+              <p class="text-xl font-bold text-[#172B4D]" id="docsVerifiedToday">0</p>
+            </div>
+          </div>
+          <div class="bg-white border border-[#DFE1E6] rounded p-4 shadow-sm flex items-center gap-4">
+            <div class="w-10 h-10 rounded bg-red-50 text-[#ba1a1a] flex items-center justify-center border border-red-100">
+              <i class="ph ph-warning-circle text-xl"></i>
+            </div>
+            <div>
+              <p class="text-[10px] font-bold text-[#737685] uppercase tracking-wider">Expired / Flagged</p>
+              <p class="text-xl font-bold text-[#172B4D]" id="docsFlagged">0</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white rounded border border-[#DFE1E6] shadow-sm overflow-hidden flex flex-col">
           <div class="overflow-x-auto">
             <table class="w-full text-left whitespace-nowrap">
-              <thead>
-                <tr class="bg-slate-50 text-slate-500 text-[11px] uppercase font-bold tracking-wider">
-                  <th class="px-6 py-4">Usuário</th>
-                  <th class="px-6 py-4">E-mail</th>
-                  <th class="px-6 py-4">Telefone</th>
-                  <th class="px-6 py-4">Cidade/Veículo</th>
-                  <th class="px-6 py-4">Ações</th>
+              <thead class="bg-[#f3f4f6] sticky top-0 border-b border-[#DFE1E6]">
+                <tr class="text-[#434654] text-[11px] uppercase font-bold tracking-wider">
+                  <th class="pl-6 pr-3 py-4 w-10"><input type="checkbox" class="rounded border-[#DFE1E6] text-[#003d9b] focus:ring-[#003d9b]"></th>
+                  <th class="px-3 py-4">Doc ID</th>
+                  <th class="px-3 py-4">Type</th>
+                  <th class="px-3 py-4">Carrier / Driver</th>
+                  <th class="px-3 py-4">License Plate</th>
+                  <th class="px-3 py-4">Date</th>
+                  <th class="px-3 py-4">Status</th>
+                  <th class="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100 text-sm" id="docsTableBody">
-                <tr><td colspan="5" class="text-center py-8 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
+              <tbody class="divide-y divide-[#DFE1E6] text-[13px] text-[#172B4D] font-medium" id="docsTableBody">
+                <tr><td colspan="8" class="text-center py-12 text-[#737685]"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
               </tbody>
             </table>
+          </div>
+          <!-- Pagination Footer -->
+          <div class="p-4 border-t border-[#DFE1E6] bg-[#f8f9fb] flex justify-between items-center text-xs font-bold text-[#737685] uppercase tracking-wider">
+            <span id="docsShowingCount">Showing 0 documents</span>
+            <div class="flex items-center gap-1">
+              <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-[#e1e2e4]"><i class="ph ph-caret-left"></i></button>
+              <button class="w-8 h-8 flex items-center justify-center rounded bg-[#003d9b] text-white">1</button>
+              <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-[#e1e2e4]">2</button>
+              <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-[#e1e2e4]"><i class="ph ph-caret-right"></i></button>
+            </div>
           </div>
         </div>
       </section>

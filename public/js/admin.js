@@ -301,17 +301,41 @@ async function loadPendingDocs() {
     }
     tbody.innerHTML = pendingUsers.map(u => {
         const init = u.name ? u.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() : 'U';
-            let badgeClass = 'bg-yellow-100 text-yellow-700 border border-yellow-200';
-            let icon = '<i class="ph-fill ph-clock text-yellow-600 mr-1"></i>';
-            if (u.docStatus === 'Aprovado') { badgeClass = 'bg-green-100 text-green-700 border border-green-200'; icon = '<i class="ph-fill ph-check-circle text-green-600 mr-1"></i>'; }
-            else if (u.docStatus === 'Reprovado') { badgeClass = 'bg-red-100 text-red-700 border border-red-200'; icon = '<i class="ph-fill ph-x-circle text-red-600 mr-1"></i>'; }
-            return `<tr>
-            <td><div class="table-user"><div class="user-initials">${init}</div><span class="user-meta-name">${san(u.name)}</span></div></td>
-            <td>${san(u.email)}</td><td>${san(u.phone||'—')}</td><td>${san(u.city||'—')} - ${san(u.vehicle||'—')}</td>
-            <td><span class="px-2 py-1 rounded-full text-xs font-bold inline-flex items-center shadow-sm ${badgeClass}">${icon}${san(u.docStatus||'Pendente')}</span></td>
-            <td><button class="btn btn-secondary btn-sm" onclick="inspectDoc('${u.uid}')">Analisar <i class="ph ph-magnifying-glass"></i></button></td>
+        
+        let badgeClass = 'bg-orange-100 text-orange-700';
+        let badgeText = 'PENDING';
+        if (u.docStatus === 'Aprovado') { badgeClass = 'bg-green-100 text-[#36B37E]'; badgeText = 'VERIFIED'; }
+        else if (u.docStatus === 'Reprovado') { badgeClass = 'bg-red-100 text-[#ba1a1a]'; badgeText = 'FLAGGED'; }
+        
+        const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '---';
+        const docId = `DOC-${u.uid.substring(0,6).toUpperCase()}`;
+
+        return `<tr class="hover:bg-blue-50/30 transition-colors">
+            <td class="pl-6 pr-3 py-4"><input type="checkbox" class="rounded border-[#DFE1E6] text-[#003d9b] focus:ring-[#003d9b]"></td>
+            <td class="px-3 py-4 font-bold text-[#003d9b]">${docId}</td>
+            <td class="px-3 py-4 text-[#737685]">${u.role === 'shipper' ? 'Embarcador' : 'Motorista'}</td>
+            <td class="px-3 py-4">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-[#f3f4f6] border border-[#DFE1E6] flex items-center justify-center text-[9px] font-bold text-[#434654] uppercase">${init}</div>
+                <span class="font-bold text-[#172B4D]">${san(u.name)}</span>
+              </div>
+            </td>
+            <td class="px-3 py-4 text-[#737685] uppercase">${san(u.placa || '---')}</td>
+            <td class="px-3 py-4 text-[#737685]">${dateStr}</td>
+            <td class="px-3 py-4">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeClass}">${badgeText}</span>
+            </td>
+            <td class="px-6 py-4 text-right">
+              <button class="w-8 h-8 inline-flex items-center justify-center rounded hover:bg-[#e1e2e4] text-[#434654] transition-colors" onclick="inspectDoc('${u.uid}')" title="Analisar">
+                <i class="ph ph-eye text-lg"></i>
+              </button>
+            </td>
         </tr>`;
     }).join('');
+
+    const showCountEl = document.getElementById('docsShowingCount');
+    if (showCountEl) showCountEl.innerText = `Showing ${pendingUsers.length} documents`;
+
 }
 
 function inspectDoc(uid) {
