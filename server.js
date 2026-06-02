@@ -266,12 +266,15 @@ app.get('/api/admin/stats', verifyAdminToken, async (req, res) => {
 // ── GET /api/admin/pending-docs ──
 app.get('/api/admin/pending-docs', verifyAdminToken, async (req, res) => {
   try {
-    const snapshot = await db.collection('users').where('role', '==', 'driver').get();
+    const snapshot = await db.collection('users').get();
     const pendingUsers = [];
 
     snapshot.forEach(doc => {
       const u = doc.data();
-      if (u.docStatus === 'Pendente' || u.docStatus === 'Em Análise' || u.documentStatus === 'pending') {
+      const hasDocs = u.documentUrls && Object.keys(u.documentUrls).length > 0;
+      const hasStatus = u.docStatus || u.documentStatus;
+      
+      if (hasDocs || hasStatus) {
         pendingUsers.push({
           uid: doc.id,
           name: u.nome || u.name,
@@ -282,8 +285,11 @@ app.get('/api/admin/pending-docs', verifyAdminToken, async (req, res) => {
           antt: u.antt || 'Não informado',
           cnh: u.cnh || 'Não informado',
           placa: u.placa || 'Não informado',
-          docStatus: u.docStatus || u.documentStatus,
-          documentUrls: u.documentUrls || {}
+          role: u.role,
+          docStatus: u.docStatus || u.documentStatus || 'Pendente',
+          documentUrls: u.documentUrls || {},
+          documentStatuses: u.documentStatuses || {},
+          createdAt: u.createdAt
         });
       }
     });
