@@ -560,9 +560,18 @@ function inspectDoc(uid) {
         if (docUrls[key]) {
             hasDocs = true;
             const label = labels[key] || key;
+            const indStatus = (u.documentStatuses && u.documentStatuses[key]) ? u.documentStatuses[key] : 'Pendente';
+            
             imagesHtml += `<div style="flex: 0 0 100%; min-height: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 4px; position: relative; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 12px;">
-                <span style="position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; background: rgba(255,255,255,0.95); padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); z-index: 2;">${label}</span>
-                <img src="${docUrls[key]}" style="width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; border-radius: 4px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('${docUrls[key]}')" title="Clique para ampliar ${label}">
+                <div style="position: absolute; top: 6px; left: 6px; right: 6px; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.95); padding: 4px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); z-index: 2;">
+                    <span style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">${label}</span>
+                    <select class="ind-doc-status text-xs font-bold p-1 rounded border outline-none" data-key="${key}">
+                        <option value="Pendente" ${indStatus==='Pendente'?'selected':''}>Pendente</option>
+                        <option value="Aprovado" ${indStatus==='Aprovado'?'selected':''}>Aprovar</option>
+                        <option value="Reprovado" ${indStatus==='Reprovado'?'selected':''}>Recusar</option>
+                    </select>
+                </div>
+                <img src="${docUrls[key]}" style="width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; border-radius: 4px; transition: transform 0.2s; margin-top: 24px;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('${docUrls[key]}')" title="Clique para ampliar ${label}">
             </div>`;
         }
     }
@@ -589,10 +598,29 @@ function toggleReject(show) {
 async function verifyDoc(action) {
     if (!inspectedUser) return;
     
-    let status = action === 'verified' ? 'Aprovado' : 'Reprovado';
-    let reason = '';
+    const documentStatuses = {};
+    let hasReprovado = false;
+    let hasPendente = false;
     
-    if (status === 'Reprovado') {
+    document.querySelectorAll('.ind-doc-status').forEach(select => {
+        const val = select.value;
+        documentStatuses[select.dataset.key] = val;
+        if (val === 'Reprovado') hasReprovado = true;
+        if (val === 'Pendente') hasPendente = true;
+    });
+    
+    let status = 'Aprovado';
+    if (hasReprovado) status = 'Reprovado';
+    else if (hasPendente) status = 'Pendente';
+    
+    // If the user hasn't typed a reason yet and it's rejected, show the reject area and abort
+    let reason = '';
+    const rejectArea = document.getElementById('rejectArea');
+    if (status === 'Reprovado' || action === 'rejected') {
+        if (rejectArea && rejectArea.style.display === 'none' && action !== 'rejected') {
+            toggleReject(true);
+            return; // Wait for them to confirm rejection reason
+        }
         reason = document.getElementById('rejectReason').value.trim();
         if (!reason) {
             showToast('Informe o motivo da rejeição.', 'error');
@@ -605,7 +633,7 @@ async function verifyDoc(action) {
         const response = await fetch(`${API}/docs/${inspectedUser.uid}/status`, {
             method: 'POST',
             headers: h,
-            body: JSON.stringify({ status, reason })
+            body: JSON.stringify({ status, reason, documentStatuses })
         });
         
         if (!response.ok) throw new Error('Falha ao atualizar status');

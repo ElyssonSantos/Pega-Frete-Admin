@@ -299,14 +299,15 @@ app.get('/api/admin/pending-docs', verifyAdminToken, async (req, res) => {
 app.post('/api/admin/docs/:uid/status', verifyAdminToken, async (req, res) => {
   try {
     const { uid } = req.params;
-    const { status, reason } = req.body;
+    const { status, reason, documentStatuses } = req.body;
     
-    if (!['Aprovado', 'Reprovado', 'Bloqueado'].includes(status)) {
+    if (!['Aprovado', 'Reprovado', 'Bloqueado', 'Pendente'].includes(status)) {
       return res.status(400).json({ error: 'Status inválido.' });
     }
 
     const updateData = { docStatus: status };
     if (reason) updateData.rejectionReason = reason;
+    if (documentStatuses) updateData.documentStatuses = documentStatuses;
 
     await db.collection('users').doc(uid).update(updateData);
     await logSecurityEvent(req.user.uid, 'DOC_STATUS_CHANGE', `Atualizou documentação de ${uid} para ${status}`);
