@@ -761,27 +761,7 @@ async function loadLogs() {
     }).join('');
 }
 
-// === DOCUMENT VERIFICATION ===
-// Removed duplicate inspectDoc
-function closeDocModal() { document.getElementById('docModal').classList.remove('active'); inspectedUser = null; }
-function toggleReject(show) { document.getElementById('rejectArea').style.display = show ? 'block' : 'none'; if (!show) document.getElementById('rejectReason').value = ''; }
-
-async function verifyDoc(status) {
-    if (!inspectedUser) return;
-    const reason = document.getElementById('rejectReason').value.trim();
-    if (status === 'rejected' && !reason) { showToast('Informe o motivo da rejeição.', 'error'); return; }
-    try {
-        const h = await getHeaders();
-        const r = await fetch(`${API}/documents/verify`, { method: 'POST', headers: h, body: JSON.stringify({ uid: inspectedUser.uid, status, reason }) });
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error);
-        showToast(d.message, 'success');
-        closeDocModal();
-        refreshSection();
-    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
-}
-
-// === NOTIFICATIONS ===
+// Removed duplicate document verification functions that were overriding the main ones.// === NOTIFICATIONS ===
 async function handleSendNotification(e) {
     e.preventDefault();
     const btn = document.getElementById('btnSendNotif'), orig = btn.innerHTML;
