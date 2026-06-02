@@ -301,10 +301,14 @@ async function loadPendingDocs() {
     }
     tbody.innerHTML = pendingUsers.map(u => {
         const init = u.name ? u.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() : 'U';
-        return `<tr>
+            let badgeClass = 'bg-yellow-100 text-yellow-700 border border-yellow-200';
+            let icon = '<i class="ph-fill ph-clock text-yellow-600 mr-1"></i>';
+            if (u.docStatus === 'Aprovado') { badgeClass = 'bg-green-100 text-green-700 border border-green-200'; icon = '<i class="ph-fill ph-check-circle text-green-600 mr-1"></i>'; }
+            else if (u.docStatus === 'Reprovado') { badgeClass = 'bg-red-100 text-red-700 border border-red-200'; icon = '<i class="ph-fill ph-x-circle text-red-600 mr-1"></i>'; }
+            return `<tr>
             <td><div class="table-user"><div class="user-initials">${init}</div><span class="user-meta-name">${san(u.name)}</span></div></td>
             <td>${san(u.email)}</td><td>${san(u.phone||'—')}</td><td>${san(u.city||'—')} - ${san(u.vehicle||'—')}</td>
-            <td><span class="badge-inline badge-purple">${san(u.docStatus||'Pendente')}</span></td>
+            <td><span class="px-2 py-1 rounded-full text-xs font-bold inline-flex items-center shadow-sm ${badgeClass}">${icon}${san(u.docStatus||'Pendente')}</span></td>
             <td><button class="btn btn-secondary btn-sm" onclick="inspectDoc('${u.uid}')">Analisar <i class="ph ph-magnifying-glass"></i></button></td>
         </tr>`;
     }).join('');
@@ -326,20 +330,29 @@ function inspectDoc(uid) {
     const docUrls = u.documentUrls || {};
     const frame = document.getElementById('docFrame');
     
-    if (docUrls.cnh) {
-        let imagesHtml = `<div style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 4px; position: relative; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <span style="position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; background: rgba(255,255,255,0.95); padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); z-index: 2;">CNH / RNTRC</span>
-            <img src="${docUrls.cnh}" style="width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; border-radius: 4px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('${docUrls.cnh}')" title="Clique para ampliar CNH">
-        </div>`;
-        if (docUrls.id) {
-            imagesHtml += `<div style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 4px; position: relative; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                <span style="position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; background: rgba(255,255,255,0.95); padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); z-index: 2;">Doc / Veículo</span>
-                <img src="${docUrls.id}" style="width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; border-radius: 4px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('${docUrls.id}')" title="Clique para ampliar Identificação">
+    let imagesHtml = '';
+    const labels = {
+        'cnhFrente': 'CNH Frente', 'cnhVerso': 'CNH Verso',
+        'cpfFrente': 'CPF Frente', 'cpfVerso': 'CPF Verso',
+        'crlv': 'CRLV do Veículo', 'residencia': 'Comp. de Residência'
+    };
+
+    let hasDocs = false;
+    for (const key in docUrls) {
+        if (docUrls[key]) {
+            hasDocs = true;
+            const label = labels[key] || key;
+            imagesHtml += `<div style="flex: 0 0 100%; min-height: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 4px; position: relative; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 12px;">
+                <span style="position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; background: rgba(255,255,255,0.95); padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); z-index: 2;">${label}</span>
+                <img src="${docUrls[key]}" style="width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; border-radius: 4px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('${docUrls[key]}')" title="Clique para ampliar ${label}">
             </div>`;
         }
-        frame.innerHTML = `<div style="display: flex; flex-direction: ${docUrls.id ? 'row' : 'column'}; gap: 12px; width: 100%; height: 100%; padding: 12px; background: #f8fafc; border-radius: inherit;">${imagesHtml}</div>`;
+    }
+    
+    if (hasDocs) {
+        frame.innerHTML = `<div style="display: flex; flex-direction: column; width: 100%; height: 100%; padding: 12px; background: #f8fafc; border-radius: inherit; overflow-y: auto;">${imagesHtml}</div>`;
     } else {
-        frame.innerHTML = `<div class="text-slate-500 text-sm flex flex-col items-center justify-center h-full w-full bg-slate-50"><i class="ph ph-file-dashed text-4xl mb-2 text-slate-300"></i><span class="font-medium text-slate-400">Sem imagem disponível</span></div>`;
+        frame.innerHTML = `<div class="text-slate-500 text-sm flex flex-col items-center justify-center h-full w-full bg-slate-50"><i class="ph ph-file-dashed text-4xl mb-2 text-slate-300"></i><span class="font-medium text-slate-400">Nenhum documento enviado</span></div>`;
     }
     
     toggleReject(false);
@@ -503,22 +516,7 @@ async function loadLogs() {
 }
 
 // === DOCUMENT VERIFICATION ===
-function inspectDoc(uid) {
-    const u = pendingUsers.find(x => x.uid === uid);
-    if (!u) return;
-    inspectedUser = u;
-    document.getElementById('docName').innerText = u.name || '—';
-    document.getElementById('docCpf').innerText = u.cpf || u.cnpj || '—';
-    document.getElementById('docVehicle').innerText = u.vehicle || '—';
-    const frame = document.getElementById('docFrame');
-    if (u.documentsUrl || u.cnhUrl) {
-        frame.innerHTML = `<img src="${u.documentsUrl||u.cnhUrl}" alt="Documento" onerror="this.parentElement.innerHTML='<div style=\\'padding:24px;text-align:center;color:var(--text-m)\\'>Não foi possível carregar.</div>'">`;
-    } else {
-        frame.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-m)"><i class="ph ph-image-square" style="font-size:64px"></i><p>Nenhum arquivo enviado.</p></div>';
-    }
-    toggleReject(false);
-    document.getElementById('docModal').classList.add('active');
-}
+// Removed duplicate inspectDoc
 function closeDocModal() { document.getElementById('docModal').classList.remove('active'); inspectedUser = null; }
 function toggleReject(show) { document.getElementById('rejectArea').style.display = show ? 'block' : 'none'; if (!show) document.getElementById('rejectReason').value = ''; }
 
