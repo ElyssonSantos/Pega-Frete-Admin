@@ -156,13 +156,14 @@ async function request(url, options = {}) {
 async function loadStats() {
     const h = await getHeaders();
     const d = await request(`${API}/stats`, { headers: h });
-    document.getElementById('statShippers').innerText = d.shippers || 0;
-    document.getElementById('statDrivers').innerText = d.drivers || 0;
-    document.getElementById('statPending').innerText = d.pendingDocs || 0;
-    document.getElementById('statFreights').innerText = d.totalFreights || 0;
-    document.getElementById('badgePending').innerText = d.pendingDocs || 0;
-    document.getElementById('verifyCount').innerText = `${d.pendingDocs || 0} Pendentes`;
-    document.getElementById('statTotal').innerText = (d.shippers || 0) + (d.drivers || 0);
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+    set('statShippers', d.shippers || 0);
+    set('statDrivers', d.drivers || 0);
+    set('statPending', d.pendingDocs || 0);
+    set('statFreights', d.totalFreights || 0);
+    set('badgePending', d.pendingDocs || 0);
+    set('verifyCount', `${d.pendingDocs || 0} Pendentes`);
+    set('statTotal', (d.shippers || 0) + (d.drivers || 0));
 }
 
 async function loadUsers() {
@@ -290,28 +291,116 @@ function selectFreight(id) {
     urgEl.className = `text-xs px-2 py-0.5 rounded font-bold ${urgClass}`;
 }
 
+let docActiveTab = 'all';
+let docCurrentPage = 1;
+const DOC_PAGE_SIZE = 15;
+
 async function loadPendingDocs() {
     const h = await getHeaders();
     const resObj = await request(`${API}/pending-docs`, { headers: h });
     pendingUsers = resObj.pendingDocs || [];
+
+    // --- Populate stat cards ---
+    const total = pendingUsers.length;
+    const pending = pendingUsers.filter(u => !u.docStatus || u.docStatus === 'Pendente').length;
+    const verified = pendingUsers.filter(u => u.docStatus === 'Aprovado').length;
+    const flagged = pendingUsers.filter(u => u.docStatus === 'Reprovado').length;
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+    set('docsTotalActive', total);
+    set('docsPendingCount', pending);
+    set('docsVerifiedToday', verified);
+    set('docsFlagged', flagged);
+
+    docCurrentPage = 1;
+    renderDocsTable();
+}
+
+function getFilteredDocs() {
+    let list = [...pendingUsers];
+
+    // Tab filter
+    if (docActiveTab === 'pending') {
+        list = list.filter(u => !u.docStatus || u.docStatus === 'Pendente');
+    } else if (docActiveTab === 'verified') {
+        list = list.filter(u => u.docStatus === 'Aprovado');
+    }
+
+    // Search
+    const searchEl = document.getElementById('docSearchInput');
+    const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+    if (q) {
+        list = list.filter(u => {
+            const docId = `DOC-${u.uid.substring(0,6).toUpperCase()}`;
+            return (u.name && u.name.toLowerCase().includes(q)) ||
+                   (u.placa && u.placa.toLowerCase().includes(q)) ||
+                   (u.email && u.email.toLowerCase().includes(q)) ||
+                   docId.toLowerCase().includes(q);
+        });
+    }
+
+    // Role filter
+    const roleEl = document.getElementById('docRoleFilter');
+    const role = roleEl ? roleEl.value : 'all';
+    if (role !== 'all') {
+        list = list.filter(u => u.role === role);
+    }
+
+    // Date filter
+    const dateEl = document.getElementById('docDateFilter');
+    const dateFilter = dateEl ? dateEl.value : 'all';
+    if (dateFilter !== 'all' && list.some(u => u.createdAt)) {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        list = list.filter(u => {
+            if (!u.createdAt) return false;
+            const d = new Date(u.createdAt);
+            if (dateFilter === 'today') return d >= startOfDay;
+            if (dateFilter === 'week') { const weekAgo = new Date(now.getTime() - 7*24*60*60*1000); return d >= weekAgo; }
+            if (dateFilter === 'month') { const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()); return d >= monthAgo; }
+            return true;
+        });
+    }
+
+    return list;
+}
+
+function renderDocsTable() {
+    const filtered = getFilteredDocs();
     const tbody = document.getElementById('docsTableBody');
-    if (!pendingUsers.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6"><i class="ph ph-check-circle" style="font-size:32px;color:var(--success)"></i><p class="mt-2" style="font-weight:700">Nenhum documento pendente!</p></td></tr>';
+
+    if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-[#737685]">
+            <i class="ph ph-check-circle text-4xl mb-2 text-green-400"></i>
+            <p class="font-bold mt-2 text-[#172B4D]">Nenhum documento encontrado</p>
+            <p class="text-xs mt-1">Tente alterar os filtros ou a aba selecionada.</p>
+        </td></tr>`;
+        const showCountEl = document.getElementById('docsShowingCount');
+        if (showCountEl) showCountEl.innerText = 'Exibindo 0 documentos';
+        const pagEl = document.getElementById('docsPagination');
+        if (pagEl) pagEl.innerHTML = '';
         return;
     }
-    tbody.innerHTML = pendingUsers.map(u => {
+
+    // Pagination
+    const totalPages = Math.ceil(filtered.length / DOC_PAGE_SIZE);
+    if (docCurrentPage > totalPages) docCurrentPage = totalPages;
+    const start = (docCurrentPage - 1) * DOC_PAGE_SIZE;
+    const pageItems = filtered.slice(start, start + DOC_PAGE_SIZE);
+
+    tbody.innerHTML = pageItems.map((u, idx) => {
         const init = u.name ? u.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() : 'U';
         
         let badgeClass = 'bg-orange-100 text-orange-700';
-        let badgeText = 'PENDING';
-        if (u.docStatus === 'Aprovado') { badgeClass = 'bg-green-100 text-[#36B37E]'; badgeText = 'VERIFIED'; }
-        else if (u.docStatus === 'Reprovado') { badgeClass = 'bg-red-100 text-[#ba1a1a]'; badgeText = 'FLAGGED'; }
+        let badgeText = 'PENDENTE';
+        if (u.docStatus === 'Aprovado') { badgeClass = 'bg-green-100 text-[#36B37E]'; badgeText = 'VERIFICADO'; }
+        else if (u.docStatus === 'Reprovado') { badgeClass = 'bg-red-100 text-[#ba1a1a]'; badgeText = 'REPROVADO'; }
         
-        const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '---';
+        const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : '---';
         const docId = `DOC-${u.uid.substring(0,6).toUpperCase()}`;
+        const zebraClass = idx % 2 === 0 ? '' : 'bg-[#f8f9fb]';
 
-        return `<tr class="hover:bg-blue-50/30 transition-colors">
-            <td class="pl-6 pr-3 py-4"><input type="checkbox" class="rounded border-[#DFE1E6] text-[#003d9b] focus:ring-[#003d9b]"></td>
+        return `<tr class="${zebraClass} hover:bg-blue-50/40 transition-colors">
+            <td class="pl-6 pr-3 py-4"><input type="checkbox" class="doc-row-check rounded border-[#DFE1E6] text-[#003d9b] focus:ring-[#003d9b]"></td>
             <td class="px-3 py-4 font-bold text-[#003d9b]">${docId}</td>
             <td class="px-3 py-4 text-[#737685]">${u.role === 'shipper' ? 'Embarcador' : 'Motorista'}</td>
             <td class="px-3 py-4">
@@ -320,23 +409,128 @@ async function loadPendingDocs() {
                 <span class="font-bold text-[#172B4D]">${san(u.name)}</span>
               </div>
             </td>
-            <td class="px-3 py-4 text-[#737685] uppercase">${san(u.placa || '---')}</td>
+            <td class="px-3 py-4 text-[#737685] uppercase font-mono text-xs">${san(u.placa || 'Não informado')}</td>
             <td class="px-3 py-4 text-[#737685]">${dateStr}</td>
             <td class="px-3 py-4">
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeClass}">${badgeText}</span>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeClass}">${badgeText}</span>
             </td>
             <td class="px-6 py-4 text-right">
-              <button class="w-8 h-8 inline-flex items-center justify-center rounded hover:bg-[#e1e2e4] text-[#434654] transition-colors" onclick="inspectDoc('${u.uid}')" title="Analisar">
+              <button class="w-8 h-8 inline-flex items-center justify-center rounded hover:bg-[#e1e2e4] text-[#434654] transition-colors" onclick="inspectDoc('${u.uid}')" title="Analisar documento">
                 <i class="ph ph-eye text-lg"></i>
               </button>
             </td>
         </tr>`;
     }).join('');
 
+    // Showing count
     const showCountEl = document.getElementById('docsShowingCount');
-    if (showCountEl) showCountEl.innerText = `Showing ${pendingUsers.length} documents`;
+    if (showCountEl) {
+        const from = start + 1;
+        const to = Math.min(start + DOC_PAGE_SIZE, filtered.length);
+        showCountEl.innerText = `Exibindo ${from}-${to} de ${filtered.length} documentos`;
+    }
 
+    // Pagination buttons
+    renderDocsPagination(totalPages);
 }
+
+function renderDocsPagination(totalPages) {
+    const container = document.getElementById('docsPagination');
+    if (!container) return;
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+    let html = `<button onclick="goDocPage(${docCurrentPage - 1})" ${docCurrentPage === 1 ? 'disabled' : ''} class="w-8 h-8 flex items-center justify-center rounded hover:bg-[#e1e2e4] ${docCurrentPage === 1 ? 'opacity-30 cursor-not-allowed' : ''}"><i class="ph ph-caret-left"></i></button>`;
+
+    for (let i = 1; i <= totalPages; i++) {
+        if (totalPages > 7 && i > 3 && i < totalPages - 1 && Math.abs(i - docCurrentPage) > 1) {
+            if (i === 4) html += `<span class="w-8 h-8 flex items-center justify-center text-[#737685]">…</span>`;
+            continue;
+        }
+        const active = i === docCurrentPage;
+        html += `<button onclick="goDocPage(${i})" class="w-8 h-8 flex items-center justify-center rounded ${active ? 'bg-[#003d9b] text-white' : 'hover:bg-[#e1e2e4] text-[#172B4D]'} font-bold text-xs">${i}</button>`;
+    }
+
+    html += `<button onclick="goDocPage(${docCurrentPage + 1})" ${docCurrentPage === totalPages ? 'disabled' : ''} class="w-8 h-8 flex items-center justify-center rounded hover:bg-[#e1e2e4] ${docCurrentPage === totalPages ? 'opacity-30 cursor-not-allowed' : ''}"><i class="ph ph-caret-right"></i></button>`;
+    container.innerHTML = html;
+}
+
+function goDocPage(page) {
+    const filtered = getFilteredDocs();
+    const totalPages = Math.ceil(filtered.length / DOC_PAGE_SIZE);
+    if (page < 1 || page > totalPages) return;
+    docCurrentPage = page;
+    renderDocsTable();
+}
+
+function setDocTab(tab) {
+    docActiveTab = tab;
+    docCurrentPage = 1;
+
+    // Update tab visuals
+    ['All', 'Pending', 'Verified'].forEach(t => {
+        const el = document.getElementById(`docTab${t}`);
+        if (!el) return;
+        const isActive = t.toLowerCase() === tab || (t === 'All' && tab === 'all');
+        el.className = `px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all ${isActive ? 'text-[#003d9b] bg-blue-50 border-b-2 border-[#003d9b]' : 'text-[#737685] hover:text-[#172B4D] hover:bg-gray-50'}`;
+    });
+
+    renderDocsTable();
+}
+
+function filterDocsTable() {
+    docCurrentPage = 1;
+    renderDocsTable();
+}
+
+function toggleAllDocCheckboxes(master) {
+    document.querySelectorAll('.doc-row-check').forEach(cb => cb.checked = master.checked);
+}
+
+function exportDocsCSV() {
+    const filtered = getFilteredDocs();
+    if (!filtered.length) { showToast('Nenhum documento para exportar.', 'error'); return; }
+
+    const headers = ['Doc ID', 'Tipo', 'Nome', 'Email', 'Placa', 'Status', 'Data'];
+    const rows = filtered.map(u => {
+        const docId = `DOC-${u.uid.substring(0,6).toUpperCase()}`;
+        const tipo = u.role === 'shipper' ? 'Embarcador' : 'Motorista';
+        const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : '';
+        const status = u.docStatus || 'Pendente';
+        return [docId, tipo, u.name || '', u.email || '', u.placa || '', status, dateStr].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+    });
+
+    const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `documentos_pegafrete_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV exportado com sucesso!', 'success');
+}
+
+function showDocsHelp() {
+    const helpHtml = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">
+        <div style="background:#fff;border-radius:12px;max-width:520px;width:90%;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,0.2);position:relative;">
+            <button onclick="this.closest('div[style*=fixed]').remove()" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#737685;" title="Fechar">✕</button>
+            <h2 style="font-family:Inter,sans-serif;font-size:20px;font-weight:700;color:#172B4D;margin-bottom:16px;">
+                <i class="ph ph-question" style="color:#003d9b;margin-right:8px;"></i> Central de Ajuda — Documentos
+            </h2>
+            <div style="font-family:Inter,sans-serif;font-size:13px;color:#434654;line-height:1.7;">
+                <p style="margin-bottom:12px;"><b>🔍 Busca:</b> Digite o nome, placa ou ID do documento na barra de pesquisa para localizar rapidamente.</p>
+                <p style="margin-bottom:12px;"><b>📑 Abas:</b> Use <b>Todos</b>, <b>Pendentes</b> ou <b>Verificados</b> para filtrar os documentos por status.</p>
+                <p style="margin-bottom:12px;"><b>📅 Filtros:</b> Combine o filtro de data (Hoje, Esta semana, Este mês) com o filtro por tipo (Motorista, Embarcador).</p>
+                <p style="margin-bottom:12px;"><b>📥 Exportar CSV:</b> Clique em "Exportar CSV" para baixar os dados filtrados em formato planilha.</p>
+                <p style="margin-bottom:12px;"><b>👁️ Analisar:</b> Clique no ícone do olho para abrir os documentos do usuário e aprovar ou reprovar.</p>
+                <p><b>⚙️ Configurações:</b> O botão de engrenagem leva à página de configurações globais do sistema.</p>
+            </div>
+        </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', helpHtml);
+}
+
 
 function inspectDoc(uid) {
     const u = pendingUsers.find(p => p.uid === uid);
