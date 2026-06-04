@@ -532,116 +532,218 @@ function showDocsHelp() {
 }
 
 
+let currentDocUrl = '';
+let currentDocZoom = 1;
+let currentDocRotation = 0;
+
 function inspectDoc(uid) {
     const u = pendingUsers.find(p => p.uid === uid);
     if (!u) return;
     inspectedUser = u;
 
-    document.getElementById('docModal').classList.add('active');
-    document.getElementById('docName').innerText = san(u.name);
-    document.getElementById('docPhone').innerText = san(u.phone || 'Não informado');
-    document.getElementById('docVehicle').innerText = san(u.vehicle || 'Não informado');
-    document.getElementById('docAntt').innerText = san(u.antt || 'Não informado');
-    document.getElementById('docCnhLabel').innerText = san(u.cnh || 'Não informado');
-    document.getElementById('docPlaca').innerText = san(u.placa || 'Não informado');
+    document.getElementById('docsListView').style.display = 'none';
+    document.getElementById('docsDetailView').style.display = 'block';
+
+    const docId = `DOC-${u.uid.substring(0,6).toUpperCase()}`;
+    document.getElementById('detailDocProtocol').innerText = `Protocolo: #${docId} • ${u.role === 'shipper' ? 'Embarcador' : 'Motorista'}: ${san(u.name)}`;
+
+    const badge = document.getElementById('detailDocStatusBadge');
+    const text = document.getElementById('detailDocStatusText');
+    if (u.docStatus === 'Aprovado') {
+        badge.className = 'px-4 py-1.5 bg-green-50 border border-green-200 text-green-700 rounded-full flex items-center gap-2';
+        text.innerText = 'VERIFICADO';
+    } else if (u.docStatus === 'Reprovado') {
+        badge.className = 'px-4 py-1.5 bg-red-50 border border-red-200 text-red-700 rounded-full flex items-center gap-2';
+        text.innerText = 'REPROVADO';
+    } else {
+        badge.className = 'px-4 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full flex items-center gap-2';
+        text.innerText = 'EM ANÁLISE';
+    }
+
+    const fields = [
+        { id: 'phone', label: 'Telefone', value: u.phone },
+        { id: 'vehicle', label: 'Veículo', value: u.vehicle },
+        { id: 'antt', label: 'ANTT/RNTRC', value: u.antt },
+        { id: 'cnh', label: 'CNH', value: u.cnh },
+        { id: 'placa', label: 'Placa', value: u.placa }
+    ];
+
+    const fieldsContainer = document.getElementById('evalFieldsContainer');
+    fieldsContainer.innerHTML = fields.map(f => `
+        <div class="space-y-2 eval-field-row" data-field="${f.id}">
+          <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${f.label}</label>
+          <div class="flex items-center gap-2">
+            <input class="flex-1 border border-slate-200 rounded-lg p-2.5 text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50" type="text" value="${san(f.value || 'Não informado')}" readonly/>
+            <button class="w-11 h-11 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-colors btn-check-field" type="button" onclick="toggleFieldStatus(this, 'ok')">
+              <i class="ph-fill ph-check-circle text-xl"></i>
+            </button>
+            <button class="w-11 h-11 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors btn-cancel-field" type="button" onclick="toggleFieldStatus(this, 'error')">
+              <i class="ph-fill ph-x-circle text-xl"></i>
+            </button>
+          </div>
+        </div>
+    `).join('');
 
     const docUrls = u.documentUrls || {};
-    const frame = document.getElementById('docFrame');
-    
-    let imagesHtml = '';
     const labels = {
         'cnhFrente': 'CNH Frente', 'cnhVerso': 'CNH Verso',
         'cpfFrente': 'CPF Frente', 'cpfVerso': 'CPF Verso',
-        'crlv': 'CRLV do Veículo', 'residencia': 'Comp. de Residência'
+        'crlv': 'CRLV', 'residencia': 'Comp. de Residência'
     };
 
-    let hasDocs = false;
+    const thumbsContainer = document.getElementById('docThumbnailsContainer');
+    const mainImg = document.getElementById('mainDocImage');
+    const noDocState = document.getElementById('noDocState');
+
+    let thumbsHtml = '';
+    let firstDocUrl = '';
+    let firstDocLabel = '';
+    currentDocZoom = 1;
+    currentDocRotation = 0;
+
     for (const key in docUrls) {
         if (docUrls[key]) {
-            hasDocs = true;
             const label = labels[key] || key;
-            const indStatus = (u.documentStatuses && u.documentStatuses[key]) ? u.documentStatuses[key] : 'Pendente';
-            
-            imagesHtml += `<div style="flex: 0 0 100%; min-height: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 4px; position: relative; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 12px;">
-                <div style="position: absolute; top: 6px; left: 6px; right: 6px; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.95); padding: 4px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); z-index: 2;">
-                    <span style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">${label}</span>
-                    <select class="ind-doc-status text-xs font-bold p-1 rounded border outline-none" data-key="${key}">
-                        <option value="Pendente" ${indStatus==='Pendente'?'selected':''}>Pendente</option>
-                        <option value="Aprovado" ${indStatus==='Aprovado'?'selected':''}>Aprovar</option>
-                        <option value="Reprovado" ${indStatus==='Reprovado'?'selected':''}>Recusar</option>
-                    </select>
-                </div>
-                <img src="${docUrls[key]}" style="width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; border-radius: 4px; transition: transform 0.2s; margin-top: 24px;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('${docUrls[key]}')" title="Clique para ampliar ${label}">
+            if (!firstDocUrl) { firstDocUrl = docUrls[key]; firstDocLabel = label; }
+            thumbsHtml += `
+            <div class="bg-white border border-slate-200 p-3 rounded-lg cursor-pointer hover:border-blue-400 hover:shadow-md transition-all doc-thumb" onclick="setMainDoc('${docUrls[key]}', '${label}', this)">
+              <p class="text-[10px] font-bold text-slate-600 uppercase text-center truncate">${label}</p>
             </div>`;
         }
     }
-    
-    if (hasDocs) {
-        frame.innerHTML = `<div style="display: flex; flex-direction: column; width: 100%; height: 100%; padding: 12px; background: #f8fafc; border-radius: inherit; overflow-y: auto;">${imagesHtml}</div>`;
+
+    if (firstDocUrl) {
+        thumbsContainer.innerHTML = thumbsHtml;
+        setMainDoc(firstDocUrl, firstDocLabel, thumbsContainer.firstElementChild);
+        mainImg.style.display = 'block';
+        noDocState.style.display = 'none';
     } else {
-        frame.innerHTML = `<div class="text-slate-500 text-sm flex flex-col items-center justify-center h-full w-full bg-slate-50"><i class="ph ph-file-dashed text-4xl mb-2 text-slate-300"></i><span class="font-medium text-slate-400">Nenhum documento enviado</span></div>`;
+        thumbsContainer.innerHTML = '';
+        mainImg.style.display = 'none';
+        noDocState.style.display = 'flex';
+        document.getElementById('currentDocLabel').innerText = 'NENHUM DOCUMENTO';
     }
-    
-    toggleReject(false);
+
+    toggleRejectArea(false);
 }
 
-function closeDocModal() {
-    document.getElementById('docModal').classList.remove('active');
+function setMainDoc(url, label, thumbEl) {
+    currentDocUrl = url;
+    const img = document.getElementById('mainDocImage');
+    img.src = url;
+    document.getElementById('currentDocLabel').innerText = label;
+
+    currentDocZoom = 1;
+    currentDocRotation = 0;
+    updateDocTransform();
+
+    document.querySelectorAll('.doc-thumb').forEach(t => {
+        t.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+    });
+    if (thumbEl) {
+        thumbEl.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+    }
+}
+
+function zoomDoc(step) {
+    currentDocZoom += step;
+    if (currentDocZoom < 0.2) currentDocZoom = 0.2;
+    if (currentDocZoom > 5) currentDocZoom = 5;
+    updateDocTransform();
+}
+
+function rotateDoc() {
+    currentDocRotation += 90;
+    updateDocTransform();
+}
+
+function updateDocTransform() {
+    const img = document.getElementById('mainDocImage');
+    if (img) img.style.transform = `scale(${currentDocZoom}) rotate(${currentDocRotation}deg)`;
+}
+
+function downloadCurrentDoc() {
+    if (currentDocUrl) window.open(currentDocUrl, '_blank');
+}
+
+function toggleFieldStatus(btn, state) {
+    const row = btn.closest('.eval-field-row');
+    const checkBtn = row.querySelector('.btn-check-field');
+    const cancelBtn = row.querySelector('.btn-cancel-field');
+
+    checkBtn.className = "w-11 h-11 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-colors btn-check-field";
+    cancelBtn.className = "w-11 h-11 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors btn-cancel-field";
+
+    if (state === 'ok') {
+        checkBtn.className = "w-11 h-11 rounded-lg border border-green-500 bg-green-500 flex items-center justify-center text-white transition-colors btn-check-field is-active";
+    } else if (state === 'error') {
+        cancelBtn.className = "w-11 h-11 rounded-lg border border-red-500 bg-red-500 flex items-center justify-center text-white transition-colors btn-cancel-field is-active";
+    }
+}
+
+function closeDocDetail() {
+    document.getElementById('docsDetailView').style.display = 'none';
+    document.getElementById('docsListView').style.display = 'block';
     inspectedUser = null;
 }
 
-function toggleReject(show) {
-    const rejectArea = document.getElementById('rejectArea');
-    if (rejectArea) rejectArea.style.display = show ? 'block' : 'none';
-}
-
-async function verifyDoc(action) {
-    if (!inspectedUser) return;
-    
-    const documentStatuses = {};
-    let hasReprovado = false;
-    let hasPendente = false;
-    
-    document.querySelectorAll('.ind-doc-status').forEach(select => {
-        const val = select.value;
-        documentStatuses[select.dataset.key] = val;
-        if (val === 'Reprovado') hasReprovado = true;
-        if (val === 'Pendente') hasPendente = true;
-    });
-    
-    let status = 'Aprovado';
-    if (hasReprovado) status = 'Reprovado';
-    else if (hasPendente) status = 'Pendente';
-    
-    // If the user hasn't typed a reason yet and it's rejected, show the reject area and abort
-    let reason = '';
-    const rejectArea = document.getElementById('rejectArea');
-    if (status === 'Reprovado' || action === 'rejected') {
-        if (rejectArea && rejectArea.style.display === 'none' && action !== 'rejected') {
-            toggleReject(true);
-            return; // Wait for them to confirm rejection reason
-        }
-        reason = document.getElementById('rejectReason').value.trim();
-        if (!reason) {
-            showToast('Informe o motivo da rejeição.', 'error');
-            return;
+function toggleRejectArea(show) {
+    const area = document.getElementById('rejectAreaNew');
+    if (area) {
+        if (show) {
+            area.classList.remove('hidden');
+        } else {
+            area.classList.add('hidden');
+            document.getElementById('rejectReasonNew').value = '';
         }
     }
+}
+
+function rejectVerification() {
+    const rejectArea = document.getElementById('rejectAreaNew');
+    if (rejectArea.classList.contains('hidden')) {
+        toggleRejectArea(true);
+        return;
+    }
+
+    const reason = document.getElementById('rejectReasonNew').value.trim();
+    if (!reason) {
+        showToast('Por favor, informe o motivo da rejeição.', 'error');
+        return;
+    }
+
+    submitDocVerification('Reprovado', reason);
+}
+
+function approveVerification() {
+    let hasCancel = false;
+    document.querySelectorAll('.btn-cancel-field.is-active').forEach(() => hasCancel = true);
     
+    if (hasCancel) {
+        showToast('Atenção: Alguns campos foram marcados com erro. Use o botão REPROVAR para notificar o usuário.', 'error');
+        return;
+    }
+    
+    submitDocVerification('Aprovado', '');
+}
+
+async function submitDocVerification(status, reason) {
+    if (!inspectedUser) return;
+
     try {
         const h = await getHeaders();
         const response = await fetch(`${API}/docs/${inspectedUser.uid}/status`, {
             method: 'POST',
             headers: h,
-            body: JSON.stringify({ status, reason, documentStatuses })
+            body: JSON.stringify({ status, reason, documentStatuses: {} })
         });
-        
+
         if (!response.ok) throw new Error('Falha ao atualizar status');
-        
-        showToast(`Documentação ${status}`, 'success');
-        closeDocModal();
+
+        showToast(`Documentação atualizada para ${status}`, 'success');
+        closeDocDetail();
         await loadPendingDocs();
-        
+
     } catch (err) {
         console.error(err);
         showToast('Erro ao validar documento.', 'error');
