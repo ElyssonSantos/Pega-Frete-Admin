@@ -604,10 +604,18 @@ function inspectDoc(uid) {
     for (const key in docUrls) {
         if (docUrls[key]) {
             const label = labels[key] || key;
+            const indStatus = (u.documentStatuses && u.documentStatuses[key]) ? u.documentStatuses[key] : 'Pendente';
             if (!firstDocUrl) { firstDocUrl = docUrls[key]; firstDocLabel = label; }
             thumbsHtml += `
-            <div class="bg-white border border-slate-200 p-3 rounded-lg cursor-pointer hover:border-blue-400 hover:shadow-md transition-all doc-thumb" onclick="setMainDoc('${docUrls[key]}', '${label}', this)">
-              <p class="text-[10px] font-bold text-slate-600 uppercase text-center truncate">${label}</p>
+            <div class="flex flex-col gap-2">
+              <div class="bg-white border border-slate-200 p-3 rounded-lg cursor-pointer hover:border-blue-400 hover:shadow-md transition-all doc-thumb" onclick="setMainDoc('${docUrls[key]}', '${label}', this)">
+                <p class="text-[10px] font-bold text-slate-600 uppercase text-center truncate">${label}</p>
+              </div>
+              <select class="ind-doc-status text-xs font-bold p-1 rounded-md border border-slate-200 outline-none text-slate-600 bg-white" data-key="${key}">
+                  <option value="Pendente" ${indStatus==='Pendente'?'selected':''}>Pendente</option>
+                  <option value="Aprovado" ${indStatus==='Aprovado'?'selected':''}>Aprovar</option>
+                  <option value="Reprovado" ${indStatus==='Reprovado'?'selected':''}>Recusar</option>
+              </select>
             </div>`;
         }
     }
@@ -712,6 +720,18 @@ function rejectVerification() {
         return;
     }
 
+    // Se houver documentos pendentes sem rejeição clara no select, marcamos como reprovado para facilitar.
+    let hasReprovado = false;
+    document.querySelectorAll('.ind-doc-status').forEach(select => {
+        if (select.value === 'Reprovado') hasReprovado = true;
+    });
+    
+    if (!hasReprovado) {
+        document.querySelectorAll('.ind-doc-status').forEach(select => {
+            if (select.value === 'Pendente') select.value = 'Reprovado';
+        });
+    }
+
     submitDocVerification('Reprovado', reason);
 }
 
@@ -724,18 +744,49 @@ function approveVerification() {
         return;
     }
     
-    submitDocVerification('Aprovado', '');
+    let hasReprovado = false;
+    let hasPendente = false;
+    document.querySelectorAll('.ind-doc-status').forEach(select => {
+        if (select.value === 'Reprovado') hasReprovado = true;
+        if (select.value === 'Pendente') hasPendente = true;
+    });
+
+    let globalStatus = 'Aprovado';
+    if (hasReprovado) globalStatus = 'Reprovado';
+    else if (hasPendente) globalStatus = 'Pendente';
+
+    if (globalStatus === 'Reprovado') {
+        const rejectArea = document.getElementById('rejectAreaNew');
+        if (rejectArea && rejectArea.classList.contains('hidden')) {
+            showToast('Existem documentos recusados. Por favor, escreva o motivo e clique em REPROVAR.', 'error');
+            toggleRejectArea(true);
+            return;
+        }
+        const reason = document.getElementById('rejectReasonNew').value.trim();
+        if (!reason) {
+            showToast('Por favor, informe o motivo da rejeição.', 'error');
+            return;
+        }
+        submitDocVerification('Reprovado', reason);
+    } else {
+        submitDocVerification(globalStatus, '');
+    }
 }
 
 async function submitDocVerification(status, reason) {
     if (!inspectedUser) return;
+
+    const documentStatuses = {};
+    document.querySelectorAll('.ind-doc-status').forEach(select => {
+        documentStatuses[select.dataset.key] = select.value;
+    });
 
     try {
         const h = await getHeaders();
         const response = await fetch(`${API}/docs/${inspectedUser.uid}/status`, {
             method: 'POST',
             headers: h,
-            body: JSON.stringify({ status, reason, documentStatuses: {} })
+            body: JSON.stringify({ status, reason, documentStatuses })
         });
 
         if (!response.ok) throw new Error('Falha ao atualizar status');
