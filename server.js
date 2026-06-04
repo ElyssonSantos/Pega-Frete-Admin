@@ -323,7 +323,7 @@ app.post('/api/admin/docs/:uid/status', verifyAdminToken, async (req, res) => {
     if (status === 'Aprovado') {
       notificationText = 'Boas notícias! Seus documentos foram validados e aprovados. Você agora tem acesso total para aceitar cargas e negociar fretes.';
     } else if (status === 'Reprovado') {
-      notificationText = `Atenção: Houve um problema na validação da sua documentação. Motivo: ${reason || 'Não informado.'} Acesse seu perfil para reenviar.`;
+      notificationText = `Atenção: Houve um problema na validação da sua documentação. Motivo: ${reason || 'Não informado'}. Acesse seu perfil para reenviar.`;
     } else if (status === 'Bloqueado') {
       notificationText = 'Sua conta foi bloqueada devido a irregularidades na documentação. Entre em contato com o suporte para mais detalhes.';
     }
