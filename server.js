@@ -869,7 +869,87 @@ app.delete('/api/admin/notifications/:id', verifyAdminToken, async (req, res) =>
   }
 });
 
-// ── GET /api/admin/logs ──
+// ── POST /api/admin/roles ──
+app.post('/api/admin/roles', verifyAdminToken, async (req, res) => {
+  try {
+    const { email, uid, role } = req.body;
+    let targetUid = uid;
+
+    if (email && !targetUid) {
+      try {
+        const userRecord = await auth.getUserByEmail(email);
+        targetUid = userRecord.uid;
+      } catch (err) {
+        return res.status(404).json({ error: 'Usuário não encontrado com este email no Authentication.' });
+      }
+    }
+
+    if (!targetUid) {
+      return res.status(400).json({ error: 'Email ou UID obrigatório.' });
+    }
+
+    const validRoles = ['owner', 'editor', 'viewer'];
+    const assignedRole = validRoles.includes(role) ? role : 'viewer';
+
+    await auth.setCustomUserClaims(targetUid, { admin: true, adminRole: assignedRole });
+
+    await db.collection('admins').doc(targetUid).set({
+      email: email || '',
+      uid: targetUid,
+      role: assignedRole,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      addedBy: req.user.uid
+    }, { merge: true });
+
+    await logSecurityEvent(
+      req.user.uid,
+      'ADMIN_ADDED_OR_UPDATED',
+      `Admin configurado: ${targetUid} com cargo de ${assignedRole}`
+    );
+
+    return res.json({ success: true, message: `Administrador (${assignedRole}) configurado com sucesso!` });
+  } catch (error) {
+    console.error('Erro ao configurar admin:', error);
+    return res.status(500).json({ error: 'Erro ao configurar cargo administrativo.' });
+  }
+});
+
+// ── GET /api/admin/admins ──
+app.get('/api/admin/admins', verifyAdminToken, async (req, res) => {
+  try {
+    const snapshot = await db.collection('admins').get();
+    const adminsList = [];
+    snapshot.forEach(doc => {
+      adminsList.push({ id: doc.id, ...doc.data() });
+    });
+    return res.json({ admins: adminsList });
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro ao listar administradores.' });
+  }
+});
+
+// ── DELETE /api/admin/roles/:uid ──
+app.delete('/api/admin/roles/:uid', verifyAdminToken, async (req, res) => {
+  try {
+    const targetUid = req.params.uid;
+    if (targetUid === req.user.uid) {
+      return res.status(400).json({ error: 'Você não pode remover seu próprio acesso.' });
+    }
+
+    await auth.setCustomUserClaims(targetUid, { admin: false });
+    await db.collection('admins').doc(targetUid).delete();
+
+    await logSecurityEvent(
+      req.user.uid,
+      'ADMIN_REMOVED',
+      `Acesso administrativo removido do UID: ${targetUid}`
+    );
+
+    return res.json({ success: true, message: 'Acesso revogado com sucesso.' });
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro ao revogar acesso.' });
+  }
+});
 app.get('/api/admin/logs', verifyAdminToken, async (req, res) => {
   try {
     const snapshot = await db.collection('security_logs')

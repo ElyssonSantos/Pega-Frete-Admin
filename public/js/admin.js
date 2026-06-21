@@ -112,7 +112,7 @@ function switchSection(id) {
     document.querySelectorAll('.dashboard-section').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(`section-${id}`);
     if (target) target.classList.add('active');
-    const titles = { stats:'Visão Geral', users:'Usuários', freights:'Fretes', documents:'Documentos', notifications:'Notificações', logs:'Logs de Segurança', setup:'Configurar Admin' };
+    const titles = { stats:'Visão Geral', users:'Usuários', freights:'Fretes', documents:'Documentos', notifications:'Notificações', logs:'Logs de Segurança', setup:'Gerenciamento de Acesso' };
     document.getElementById('sectionTitle').innerText = titles[id] || '';
     loadData(id);
     // Mobile: close sidebar
@@ -136,6 +136,7 @@ async function loadData(id) {
         else if (id === 'notifications') await loadUsersDropdown();
         else if (id === 'logs') await loadLogs();
         else if (id === 'settings') await loadSettings();
+        else if (id === 'setup') await loadAdmins();
     } catch (e) { console.error(e); showToast(e.message || 'Erro de comunicação com a API.', 'error'); }
 }
 
@@ -934,6 +935,93 @@ async function handleSendNotification(e) {
 }
 
 // === SETUP CLAIMS ===
+async function handleAdminRole(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnAdminRole');
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Processando...';
+    try {
+        const h = await getHeaders();
+        const email = document.getElementById('newAdminEmail').value.trim();
+        const role = document.getElementById('newAdminRole').value;
+        const r = await fetch(`${API}/roles`, {
+            method: 'POST',
+            headers: h,
+            body: JSON.stringify({ email, role })
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error);
+        showToast(d.message, 'success');
+        document.getElementById('newAdminEmail').value = '';
+        await loadAdmins();
+    } catch (error) {
+        showToast('Falha: ' + error.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+    }
+}
+
+async function loadAdmins() {
+    const container = document.getElementById('adminsListContainer');
+    if (!container) return;
+    try {
+        const h = await getHeaders();
+        const r = await fetch(`${API}/admins`, { headers: h });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error);
+        
+        const admins = d.admins || [];
+        if (admins.length === 0) {
+            container.innerHTML = '<div class="text-center py-8 text-slate-500">Nenhum administrador encontrado.</div>';
+            return;
+        }
+
+        container.innerHTML = admins.map(a => {
+            const roleLabels = { 'owner': 'Proprietário', 'editor': 'Editor', 'viewer': 'Visualizador' };
+            const roleColors = { 
+                'owner': 'bg-purple-100 text-purple-700 border-purple-200', 
+                'editor': 'bg-blue-100 text-blue-700 border-blue-200', 
+                'viewer': 'bg-slate-100 text-slate-700 border-slate-200' 
+            };
+            
+            const rLabel = roleLabels[a.role] || a.role;
+            const rColor = roleColors[a.role] || roleColors['viewer'];
+
+            return `
+            <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm">
+                <div>
+                    <p class="font-bold text-sm text-slate-800">${san(a.email)}</p>
+                    <p class="text-xs text-slate-500 font-mono mt-0.5">UID: ${san(a.id)}</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-1 rounded border ${rColor}">${rLabel}</span>
+                    <button onclick="revokeAdmin('${a.id}')" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors" title="Revogar Acesso">
+                        <i class="ph ph-trash text-lg"></i>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+
+    } catch (error) {
+        container.innerHTML = `<div class="text-center py-8 text-red-500">Erro ao carregar: ${error.message}</div>`;
+    }
+}
+
+async function revokeAdmin(uid) {
+    if (!confirm('Tem certeza que deseja remover o acesso administrativo deste usuário?')) return;
+    try {
+        const h = await getHeaders();
+        const r = await fetch(`${API}/roles/${uid}`, { method: 'DELETE', headers: h });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error);
+        showToast(d.message, 'success');
+        await loadAdmins();
+    } catch (error) {
+        showToast('Erro: ' + error.message, 'error');
+    }
+}
 
 // === EDIT STUBS (prompt user via browser prompt for simplicity) ===
 async function editUser(uid) {

@@ -93,8 +93,8 @@
   <aside class="w-64 sidebar-border bg-white flex flex-col flex-shrink-0 sidebar-wrapper" id="sidebar">
     <!-- Logo Section -->
     <div class="p-6 flex items-center gap-3 border-b border-slate-100">
-      <div class="w-10 h-10 bg-brand-blue rounded-lg flex items-center justify-center shadow-md text-white">
-        <i class="ph-fill ph-shield-checkered text-xl"></i>
+      <div class="w-10 h-10 flex items-center justify-center overflow-hidden">
+        <img src="PegaFrete.png" alt="PegaFrete Logo" class="h-full w-full object-contain">
       </div>
       <span class="text-xl font-bold tracking-tight text-brand">PegaFrete</span>
       <!-- Mobile Close Btn -->
@@ -739,43 +739,51 @@
 
       <!-- === SECTION: SETUP === -->
       <section id="section-setup" class="dashboard-section">
-        <div class="bg-white rounded-xl border border-slate-200 card-shadow max-w-xl mx-auto overflow-hidden">
-          <div class="px-6 py-5 border-b border-slate-100 bg-slate-50">
-            <h3 class="text-lg font-bold text-brand flex items-center gap-2">
-              <i class="ph ph-shield-check text-blue-600"></i> Configurar Novo Admin
-            </h3>
-            <p class="text-sm text-slate-500">Fluxo seguro seguindo padrão Zero Trust</p>
-          </div>
-          <div class="p-6 space-y-6 text-slate-600">
-            <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 flex gap-3 text-sm text-blue-800">
-              <i class="ph-fill ph-info text-lg shrink-0 mt-0.5"></i>
-              <div>
-                <p class="font-semibold">Rota pública desativada por segurança</p>
-                <p class="mt-1 text-xs text-blue-700 leading-relaxed">
-                  Para impedir ataques de escalação de privilégios, a API pública de promoção de administradores foi completamente desativada. As promoções agora devem ser feitas diretamente no terminal local usando as credenciais privadas do servidor.
-                </p>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-              <h4 class="text-sm font-bold text-slate-800">Como promover um usuário:</h4>
-              <p class="text-xs">Abra o terminal na pasta do projeto administrativo e execute o script local:</p>
-              
-              <div class="bg-slate-950 text-slate-200 p-4 rounded-lg font-mono text-xs overflow-x-auto shadow-inner">
-                <code>node set_admin.js "usuario@email.com"</code>
-              </div>
-              
-              <p class="text-xs text-slate-400">Ou use o UID do Firebase:</p>
-              <div class="bg-slate-950 text-slate-200 p-4 rounded-lg font-mono text-xs overflow-x-auto shadow-inner">
-                <code>node set_admin.js "UID_DO_USUARIO"</code>
-              </div>
+        <div class="bg-white rounded-xl border border-slate-200 card-shadow max-w-4xl mx-auto overflow-hidden grid grid-cols-1 md:grid-cols-2">
+          
+          <!-- Adicionar Admin -->
+          <div class="p-6 space-y-6 border-b md:border-b-0 md:border-r border-slate-200">
+            <div>
+              <h3 class="text-lg font-bold text-brand flex items-center gap-2 mb-1">
+                <i class="ph ph-shield-plus text-blue-600"></i> Adicionar Administrador
+              </h3>
+              <p class="text-sm text-slate-500">Conceda acesso ao painel para novos usuários.</p>
             </div>
             
-            <div class="border-t border-slate-100 pt-4 flex items-center justify-between text-xs text-slate-400">
-              <span>Arquivo de automação: <code>set_admin.js</code></span>
-              <span class="text-green-600 font-medium">● Execução Local</span>
+            <form id="adminRoleForm" onsubmit="handleAdminRole(event)" class="space-y-4">
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">E-mail do Usuário</label>
+                <input type="email" id="newAdminEmail" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none" required placeholder="Ex: joao@email.com">
+                <p class="text-[10px] text-slate-400 mt-1">O usuário já deve estar cadastrado no PegaFrete.</p>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Cargo / Permissão</label>
+                <select id="newAdminRole" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none">
+                  <option value="viewer">Visualizador (Somente leitura)</option>
+                  <option value="editor">Editor (Gerencia fretes e usuários)</option>
+                  <option value="owner">Proprietário (Acesso Total)</option>
+                </select>
+              </div>
+              <button type="submit" id="btnAdminRole" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg flex justify-center items-center gap-2 transition-colors">
+                <i class="ph ph-plus-circle text-lg"></i> Conceder Acesso
+              </button>
+            </form>
+          </div>
+          
+          <!-- Lista de Admins -->
+          <div class="p-6 flex flex-col bg-slate-50 h-[500px]">
+            <div>
+              <h3 class="text-lg font-bold text-brand flex items-center gap-2 mb-1">
+                <i class="ph ph-users-three text-blue-600"></i> Administradores Ativos
+              </h3>
+              <p class="text-sm text-slate-500 mb-4">Lista de quem tem acesso a este painel.</p>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto space-y-3 pr-2" id="adminsListContainer">
+              <div class="text-center py-8 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></div>
             </div>
           </div>
+          
         </div>
       </section>
 
