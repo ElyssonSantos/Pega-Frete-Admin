@@ -645,10 +645,34 @@ app.post('/api/admin/documents/verify', verifyAdminToken, async (req, res) => {
   }
 });
 
+// ── Limpeza de Token FCM Inválido ──
+async function clearInvalidFcmToken(token) {
+  try {
+    const usersSnap = await db.collection('users').where('fcmToken', '==', token).get();
+    const batch = db.batch();
+    usersSnap.forEach(doc => {
+      batch.update(doc.ref, {
+        fcmToken: admin.firestore.FieldValue.delete(),
+        fcmTokenUpdatedAt: admin.firestore.FieldValue.delete()
+      });
+    });
+
+    const fcmSnap = await db.collection('fcm_tokens').where('token', '==', token).get();
+    fcmSnap.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+    console.log(`[FCM] Token inválido limpo: ${token}`);
+  } catch (err) {
+    console.error('[FCM] Erro ao limpar token inválido:', err.message);
+  }
+}
+
 // ── POST /api/admin/notifications/send ──
 app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => {
   try {
-    const { targetUid, title, message } = req.body;
+    const { targetUid, title, message, sendInternal = true, sendPush = false } = req.body;
 
     if (!targetUid || (!title && !message)) {
       return res.status(400).json({
@@ -659,63 +683,140 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
     const tTitle = title ? title.trim() : '';
     const tMessage = message ? message.trim() : '';
 
-    let sentCount = 0;
-    
+    let internalSentCount = 0;
+    let pushSentCount = 0;
+    let pushFailCount = 0;
+
     // Criar o documento de histórico de notificações em admin_notifications
     const notifRef = db.collection('admin_notifications').doc();
     const notificationId = notifRef.id;
 
-    if (targetUid === 'all' || targetUid === 'shippers' || targetUid === 'drivers') {
-      let usersQuery = db.collection('users');
-      if (targetUid === 'shippers') {
-        usersQuery = usersQuery.where('role', '==', 'shipper');
-      } else if (targetUid === 'drivers') {
-        usersQuery = usersQuery.where('role', '==', 'driver');
-      }
-
-      const usersSnap = await usersQuery.get();
-      const batch = db.batch();
-      let batchCount = 0;
-
-      const batches = [batch];
-      let currentBatch = batch;
-
-      usersSnap.forEach(doc => {
-        if (batchCount >= 499) {
-          currentBatch = db.batch();
-          batches.push(currentBatch);
-          batchCount = 0;
+    // ── 1. ENVIO INTERNO (DENTRO DO APP) ──
+    if (sendInternal) {
+      if (targetUid === 'all' || targetUid === 'shippers' || targetUid === 'drivers') {
+        let usersQuery = db.collection('users');
+        if (targetUid === 'shippers') {
+          usersQuery = usersQuery.where('role', '==', 'shipper');
+        } else if (targetUid === 'drivers') {
+          usersQuery = usersQuery.where('role', '==', 'driver');
         }
 
-        const msgRef = db.collection('system_messages').doc();
-        currentBatch.set(msgRef, {
-          userUid: doc.id,
+        const usersSnap = await usersQuery.get();
+        const batch = db.batch();
+        let batchCount = 0;
+        const batches = [batch];
+        let currentBatch = batch;
+
+        usersSnap.forEach(doc => {
+          if (batchCount >= 499) {
+            currentBatch = db.batch();
+            batches.push(currentBatch);
+            batchCount = 0;
+          }
+
+          const msgRef = db.collection('system_messages').doc();
+          currentBatch.set(msgRef, {
+            userUid: doc.id,
+            title: tTitle,
+            message: tMessage,
+            read: false,
+            type: targetUid === 'all' ? 'admin_broadcast' : (targetUid === 'shippers' ? 'admin_shippers_broadcast' : 'admin_drivers_broadcast'),
+            notificationId: notificationId,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          batchCount++;
+          internalSentCount++;
+        });
+
+        for (const b of batches) {
+          await b.commit();
+        }
+      } else {
+        // Mensagem individual
+        await db.collection('system_messages').add({
+          userUid: targetUid,
           title: tTitle,
           message: tMessage,
           read: false,
-          type: targetUid === 'all' ? 'admin_broadcast' : (targetUid === 'shippers' ? 'admin_shippers_broadcast' : 'admin_drivers_broadcast'),
-          notificationId: notificationId, // Link para permitir exclusão
+          type: 'admin_notification',
+          notificationId: notificationId,
           createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
-        batchCount++;
-        sentCount++;
-      });
-
-      for (const b of batches) {
-        await b.commit();
+        internalSentCount = 1;
       }
-    } else {
-      // Mensagem individual
-      await db.collection('system_messages').add({
-        userUid: targetUid,
-        title: tTitle,
-        message: tMessage,
-        read: false,
-        type: 'admin_notification',
-        notificationId: notificationId, // Link para permitir exclusão
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-      sentCount = 1;
+    }
+
+    // ── 2. ENVIO PUSH EXTERNO (FCM) ──
+    if (sendPush) {
+      const tokens = [];
+      if (targetUid === 'all' || targetUid === 'shippers' || targetUid === 'drivers') {
+        let fcmQuery = db.collection('fcm_tokens');
+        if (targetUid === 'shippers') {
+          fcmQuery = fcmQuery.where('role', '==', 'shipper');
+        } else if (targetUid === 'drivers') {
+          fcmQuery = fcmQuery.where('role', '==', 'driver');
+        }
+        const snap = await fcmQuery.get();
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (data.token) tokens.push(data.token);
+        });
+      } else {
+        // Usuário individual
+        const fcmDoc = await db.collection('fcm_tokens').doc(targetUid).get();
+        if (fcmDoc.exists && fcmDoc.data().token) {
+          tokens.push(fcmDoc.data().token);
+        } else {
+          // Fallback para o documento do usuário
+          const uDoc = await db.collection('users').doc(targetUid).get();
+          if (uDoc.exists && uDoc.data().fcmToken) {
+            tokens.push(uDoc.data().fcmToken);
+          }
+        }
+      }
+
+      if (tokens.length > 0) {
+        const BATCH_SIZE = 500;
+        for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
+          const batch = tokens.slice(i, i + BATCH_SIZE);
+          const fcmMessage = {
+            notification: {
+              title: tTitle || 'PegaFrete',
+              body: tMessage || ''
+            },
+            data: {
+              click_action: '/',
+              tag: 'pegafrete'
+            },
+            tokens: batch,
+            android: {
+              priority: 'high',
+              notification: {
+                sound: 'default',
+                channelId: 'pegafrete_channel'
+              }
+            }
+          };
+
+          try {
+            const response = await admin.messaging().sendEachForMulticast(fcmMessage);
+            pushSentCount += response.successCount;
+            pushFailCount += response.failureCount;
+
+            // Limpa tokens inativos assincronamente
+            response.responses.forEach(async (resp, idx) => {
+              if (!resp.success) {
+                const errCode = resp.error?.code;
+                if (errCode === 'messaging/registration-token-not-registered' || errCode === 'messaging/invalid-argument') {
+                  await clearInvalidFcmToken(batch[idx]);
+                }
+              }
+            });
+          } catch (fcmErr) {
+            console.error('[FCM] Erro ao disparar lote de push:', fcmErr);
+          }
+        }
+      }
     }
 
     // Salva no histórico administrativo
@@ -723,7 +824,11 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
       targetUid,
       title: tTitle,
       message: tMessage,
-      sentCount,
+      sendInternal,
+      sendPush,
+      sentCount: sendInternal ? internalSentCount : pushSentCount,
+      pushSentCount,
+      pushFailCount,
       sentBy: req.user.uid,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
@@ -731,19 +836,32 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
     await logSecurityEvent(
       req.user.uid,
       'NOTIFICATION_SENT',
-      `Admin enviou notificação para ${targetUid === 'all' ? 'todos (' + sentCount + ' usuários)' : (targetUid === 'shippers' ? 'todos os embarcadores' : (targetUid === 'drivers' ? 'todos os transportadores' : targetUid))}. Título: ${tTitle}`
+      `Admin enviou notificação (${sendInternal ? 'Interna' : ''} ${sendPush ? 'Push' : ''}) para ${
+        targetUid === 'all' ? 'todos' : (targetUid === 'shippers' ? 'embarcadores' : (targetUid === 'drivers' ? 'transportadores' : targetUid))
+      }. Título: ${tTitle}. Interna: ${internalSentCount} enviadas. Push: ${pushSentCount} enviados (${pushFailCount} falhas).`
     );
+
+    let finalMsg = '';
+    if (sendInternal && sendPush) {
+      finalMsg = `Mensagem interna enviada para ${internalSentCount} usuário(s) e Push enviado para ${pushSentCount} dispositivo(s).`;
+    } else if (sendInternal) {
+      finalMsg = `Mensagem interna enviada para ${internalSentCount} usuário(s).`;
+    } else {
+      finalMsg = `Notificação Push enviada para ${pushSentCount} dispositivo(s) (${pushFailCount} falhas).`;
+    }
 
     return res.json({
       success: true,
-      message: `Notificação enviada para ${sentCount} usuário(s).`,
-      sentCount,
+      message: finalMsg,
+      sentCount: internalSentCount || pushSentCount,
+      pushSentCount,
       notification: {
         id: notificationId,
         targetUid,
         title: tTitle,
         message: tMessage,
-        sentCount,
+        sentCount: internalSentCount || pushSentCount,
+        pushSentCount,
         createdAt: new Date().toISOString()
       }
     });

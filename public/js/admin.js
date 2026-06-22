@@ -234,6 +234,11 @@ function filterAndRenderUsers() {
             docStatus = 'Reprovado';
         }
 
+        const hasFcm = !!(u.fcmToken || u.fcmTokenEnabled);
+        const fcmBadge = hasFcm
+            ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200" title="Token FCM registrado"><i class="ph ph-bell-ringing"></i> Push Ativo</span>'
+            : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 text-slate-400 border border-slate-200" title="Sem token FCM"><i class="ph ph-bell-slash"></i> Inativo</span>';
+
         const zebraClass = idx % 2 === 0 ? '' : 'bg-[#f8f9fb]';
 
         return `<tr class="${zebraClass} hover:bg-blue-50/40 transition-colors">
@@ -249,7 +254,10 @@ function filterAndRenderUsers() {
             <td class="px-6 py-4 text-slate-600 font-medium">${san(u.email)}</td>
             <td class="px-6 py-4 text-slate-500 font-mono text-xs">${san(u.phone||'—')}</td>
             <td class="px-6 py-4">
-              <span class="px-2.5 py-1 rounded-full text-xs font-bold ${roleBadge}">${roleLabel}</span>
+              <div class="flex flex-col gap-1.5 items-start">
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold ${roleBadge}">${roleLabel}</span>
+                ${fcmBadge}
+              </div>
             </td>
             <td class="px-6 py-4">
               <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${docBadge}">${docStatus}</span>
@@ -927,6 +935,15 @@ async function loadNotificationsHistory() {
             else if (n.targetUid === 'shippers') targetStr = 'Todos os Embarcadores';
             else if (n.targetUid === 'drivers') targetStr = 'Todos os Transportadores';
 
+            let methodStr = '';
+            if (n.sendInternal !== false && n.sendPush === true) {
+                methodStr = 'Interno + Push';
+            } else if (n.sendPush === true) {
+                methodStr = 'Push FCM';
+            } else {
+                methodStr = 'Interno';
+            }
+
             const title = n.title ? san(n.title) : '<span class="text-slate-400 italic">Sem título</span>';
             const message = n.message ? san(n.message) : '<span class="text-slate-400 italic">Sem mensagem</span>';
 
@@ -944,7 +961,7 @@ async function loadNotificationsHistory() {
                       </button>
                     </div>
                     <p class="text-xs text-slate-600 mt-1">${message}</p>
-                    <span class="text-[10px] text-slate-400 mt-2 block">${dateStr} — ${targetStr}</span>
+                    <span class="text-[10px] text-slate-400 mt-2 block">${dateStr} — ${targetStr} [${methodStr}]</span>
                     
                     <div class="mt-3 bg-slate-50 p-2 rounded border border-slate-100">
                       <div class="flex justify-between text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">
@@ -1007,10 +1024,24 @@ async function loadLogs() {
 async function handleSendNotification(e) {
     e.preventDefault();
     const btn = document.getElementById('btnSendNotif'), orig = btn.innerHTML;
+    const sendInternal = document.getElementById('notifySendInternal').checked;
+    const sendPush = document.getElementById('notifySendPush').checked;
+
+    if (!sendInternal && !sendPush) {
+        showToast('Selecione pelo menos uma opção de envio (Mensagem interna e/ou Push FCM).', 'error');
+        return;
+    }
+
     btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Enviando...';
     try {
         const h = await getHeaders();
-        const body = { targetUid: document.getElementById('notifyTarget').value, title: document.getElementById('notifyTitle').value.trim(), message: document.getElementById('notifyMessage').value.trim() };
+        const body = { 
+            targetUid: document.getElementById('notifyTarget').value, 
+            title: document.getElementById('notifyTitle').value.trim(), 
+            message: document.getElementById('notifyMessage').value.trim(),
+            sendInternal,
+            sendPush
+        };
         const r = await fetch(`${API}/notifications/send`, { method: 'POST', headers: h, body: JSON.stringify(body) });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error);
