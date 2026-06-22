@@ -810,6 +810,16 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
                 sound: 'default',
                 channelId: 'pegafrete_channel'
               }
+            },
+            webpush: {
+              notification: {
+                icon: '/orange_truck_avatar.png',
+                badge: '/favicon.svg',
+                tag: 'pegafrete-notification'
+              },
+              fcmOptions: {
+                link: '/'
+              }
             }
           };
 
