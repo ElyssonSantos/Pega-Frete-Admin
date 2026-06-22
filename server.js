@@ -248,6 +248,45 @@ app.get('/api/admin/stats', verifyAdminToken, async (req, res) => {
       freightsByStatus[s] = (freightsByStatus[s] || 0) + 1;
     });
 
+    // Group freights by month (last 5 months)
+    const monthsNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const monthlyStats = [];
+    
+    // Create the last 5 months structure
+    for (let i = 4; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      monthlyStats.push({
+        monthName: monthsNames[d.getMonth()],
+        year: d.getFullYear(),
+        monthNum: d.getMonth(),
+        count: 0
+      });
+    }
+
+    freightsSnap.forEach(doc => {
+      const data = doc.data();
+      if (data.createdAt) {
+        let date;
+        if (typeof data.createdAt.toDate === 'function') {
+          date = data.createdAt.toDate();
+        } else if (data.createdAt._seconds) {
+          date = new Date(data.createdAt._seconds * 1000);
+        } else {
+          date = new Date(data.createdAt);
+        }
+        
+        if (date && !isNaN(date.getTime())) {
+          const m = date.getMonth();
+          const y = date.getFullYear();
+          const found = monthlyStats.find(item => item.monthNum === m && item.year === y);
+          if (found) {
+            found.count++;
+          }
+        }
+      }
+    });
+
     return res.json({
       totalUsers: usersSnap.size,
       shippers,
@@ -255,7 +294,8 @@ app.get('/api/admin/stats', verifyAdminToken, async (req, res) => {
       totalFreights: freightsSnap.size,
       freightsByStatus,
       pendingDocs,
-      totalLogs: logsSnap.empty ? 0 : 'N/A'
+      totalLogs: logsSnap.empty ? 0 : 'N/A',
+      monthlyStats
     });
   } catch (error) {
     console.error('Erro em stats:', error);
@@ -266,7 +306,7 @@ app.get('/api/admin/stats', verifyAdminToken, async (req, res) => {
 // ── GET /api/admin/pending-docs ──
 app.get('/api/admin/pending-docs', verifyAdminToken, async (req, res) => {
   try {
-    const snapshot = await db.collection('users').where('role', '==', 'driver').get();
+    const snapshot = await db.collection('users').get();
     const pendingUsers = [];
 
     snapshot.forEach(doc => {
@@ -278,7 +318,7 @@ app.get('/api/admin/pending-docs', verifyAdminToken, async (req, res) => {
           email: u.email,
           phone: u.telefone || u.phone,
           city: u.endereco || u.city,
-          vehicle: u.veiculo || u.vehicle,
+          vehicle: u.veiculo || u.vehicle || (u.role === 'shipper' ? 'Embarcador' : 'Não informado'),
           antt: u.antt || 'Não informado',
           cnh: u.cnh || 'Não informado',
           placa: u.placa || 'Não informado',
@@ -305,16 +345,27 @@ app.post('/api/admin/docs/:uid/status', verifyAdminToken, async (req, res) => {
       return res.status(400).json({ error: 'Status inválido.' });
     }
 
-    const updateData = { docStatus: status };
+    const userRef = db.collection('users').doc(uid);
+    const userSnap = await userRef.get();
+    const role = userSnap.exists ? (userSnap.data().role || 'driver') : 'driver';
+
+    const updateData = { 
+      docStatus: status,
+      documentStatus: status === 'Aprovado' ? 'verified' : (status === 'Reprovado' ? 'rejected' : 'pending')
+    };
     if (reason) updateData.rejectionReason = reason;
 
-    await db.collection('users').doc(uid).update(updateData);
+    await userRef.update(updateData);
     await logSecurityEvent(req.user.uid, 'DOC_STATUS_CHANGE', `Atualizou documentação de ${uid} para ${status}`);
 
     // Enviar notificação in-app
     let notificationText = '';
     if (status === 'Aprovado') {
-      notificationText = 'Boas notícias! Seus documentos foram validados e aprovados. Você agora tem acesso total para aceitar cargas e negociar fretes.';
+      if (role === 'shipper') {
+        notificationText = 'Boas notícias! Seus documentos foram validados e aprovados. Você agora tem acesso total para publicar novos fretes.';
+      } else {
+        notificationText = 'Boas notícias! Seus documentos foram validados e aprovados. Você agora tem acesso total para aceitar cargas e negociar fretes.';
+      }
     } else if (status === 'Reprovado') {
       notificationText = `Atenção: Houve um problema na validação da sua documentação. Motivo: ${reason || 'Não informado.'} Acesse seu perfil para reenviar.`;
     } else if (status === 'Bloqueado') {
@@ -588,12 +639,19 @@ app.post('/api/admin/documents/verify', verifyAdminToken, async (req, res) => {
       });
     }
 
+    const userRef = db.collection('users').doc(uid);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+    const role = userSnap.data().role || 'driver';
+
     const batch = db.batch();
 
     // 1. Atualizar status do documento no perfil do usuário
-    const userRef = db.collection('users').doc(uid);
     batch.update(userRef, {
       documentStatus: status,
+      docStatus: status === 'verified' ? 'Aprovado' : 'Reprovado',
       documentVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
       documentVerifierUid: req.user.uid
     });
@@ -604,7 +662,9 @@ app.post('/api/admin/documents/verify', verifyAdminToken, async (req, res) => {
       ? '✅ Documentos Aprovados'
       : '❌ Documentos Rejeitados';
     const notifMessage = status === 'verified'
-      ? 'Seus documentos foram analisados e aprovados pela equipe PegaFrete. Você já pode acessar todos os recursos da plataforma.'
+      ? (role === 'shipper'
+        ? 'Boas notícias! Seus documentos foram validados e aprovados. Você agora tem acesso total para publicar novos fretes.'
+        : 'Boas notícias! Seus documentos foram validados e aprovados. Você agora tem acesso total para aceitar cargas e negociar fretes.')
       : `Seus documentos foram analisados e rejeitados. Motivo: ${reason || 'Não especificado'}. Por favor, envie novamente os documentos corretos.`;
 
     batch.set(msgRef, {

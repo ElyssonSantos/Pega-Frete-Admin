@@ -67,13 +67,16 @@ async function handleLogin(e) {
     } catch (err) {
         btn.disabled = false;
         btn.innerHTML = orig;
+        console.error('Firebase Auth Error:', err);
         const msgs = {
             'auth/wrong-password': 'Senha incorreta.',
             'auth/user-not-found': 'Usuário não encontrado.',
-            'auth/invalid-credential': 'Credenciais inválidas.',
-            'auth/too-many-requests': 'Muitas tentativas. Tente em breve.'
+            'auth/invalid-credential': 'Credenciais inválidas (verifique o e-mail e a senha).',
+            'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde.',
+            'auth/user-disabled': 'Esta conta foi desativada pelo administrador.',
+            'auth/invalid-email': 'Formato de e-mail inválido.'
         };
-        showToast(msgs[err.code] || 'Erro ao fazer login.', 'error');
+        showToast(msgs[err.code] || `Erro ao fazer login (${err.code}): ${err.message}`, 'error');
     }
 }
 
@@ -90,8 +93,9 @@ async function loginComGoogle() {
     } catch (err) {
         btn.disabled = false;
         btn.innerHTML = orig;
+        console.error('Google Auth Error:', err);
         if (err.code !== 'auth/popup-closed-by-user') {
-            showToast('Erro ao entrar com Google.', 'error');
+            showToast(`Erro ao entrar com Google (${err.code}): ${err.message}`, 'error');
         }
     }
 }
@@ -129,6 +133,11 @@ function toggleSidebar() { document.getElementById('sidebar').classList.toggle('
 
 async function loadData(id) {
     try {
+        // Keep stats and badges updated across all views
+        if (id !== 'stats') {
+            loadStats().catch(console.error);
+        }
+        
         if (id === 'stats') await loadStats();
         else if (id === 'users') await loadUsers();
         else if (id === 'freights') await loadFreights();
@@ -161,8 +170,39 @@ async function loadStats() {
     document.getElementById('statPending').innerText = d.pendingDocs || 0;
     document.getElementById('statFreights').innerText = d.totalFreights || 0;
     document.getElementById('badgePending').innerText = d.pendingDocs || 0;
-    document.getElementById('verifyCount').innerText = `${d.pendingDocs || 0} Pendentes`;
+    
+    const verifyCountEl = document.getElementById('verifyCount');
+    if (verifyCountEl) verifyCountEl.innerText = `${d.pendingDocs || 0} Pendentes`;
+    
     document.getElementById('statTotal').innerText = (d.shippers || 0) + (d.drivers || 0);
+
+    // Render growth chart dynamically
+    const chartContainer = document.getElementById('growthChartContainer');
+    if (chartContainer && d.monthlyStats && d.monthlyStats.length) {
+        const maxCount = Math.max(...d.monthlyStats.map(m => m.count), 1);
+        chartContainer.innerHTML = d.monthlyStats.map((m, idx) => {
+            const heightPercent = Math.max(5, Math.round((m.count / maxCount) * 100));
+            const isLast = idx === d.monthlyStats.length - 1;
+            const barClass = isLast
+                ? 'bg-gradient-to-t from-blue-700 to-blue-500 shadow-lg'
+                : 'bg-slate-100 hover:bg-slate-200';
+            const textClass = isLast
+                ? 'font-bold text-brand'
+                : 'font-medium text-slate-500';
+            return `
+                <div class="flex-1 flex flex-col items-center gap-3 h-full justify-end">
+                    <div class="relative w-full group flex flex-col items-center justify-end h-full">
+                        <!-- Tooltip showing exact count on hover -->
+                        <div class="absolute -top-8 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap shadow-md">
+                            ${m.count} frete(s)
+                        </div>
+                        <div class="w-full rounded-t-md transition-all duration-500 ${barClass}" style="height: ${heightPercent}%"></div>
+                    </div>
+                    <span class="text-xs ${textClass}">${m.monthName}</span>
+                </div>
+            `;
+        }).join('');
+    }
 }
 
 async function loadUsers() {
@@ -353,40 +393,25 @@ function closeDocModal() {
 function toggleReject(show) {
     const rejectArea = document.getElementById('rejectArea');
     if (rejectArea) rejectArea.style.display = show ? 'block' : 'none';
+    if (!show) {
+        const reasonInput = document.getElementById('rejectReason');
+        if (reasonInput) reasonInput.value = '';
+    }
 }
 
-async function verifyDoc(action) {
+async function verifyDoc(status) {
     if (!inspectedUser) return;
-    
-    let status = action === 'verified' ? 'Aprovado' : 'Reprovado';
-    let reason = '';
-    
-    if (status === 'Reprovado') {
-        reason = document.getElementById('rejectReason').value.trim();
-        if (!reason) {
-            showToast('Informe o motivo da rejeição.', 'error');
-            return;
-        }
-    }
-    
+    const reason = document.getElementById('rejectReason').value.trim();
+    if (status === 'rejected' && !reason) { showToast('Informe o motivo da rejeição.', 'error'); return; }
     try {
         const h = await getHeaders();
-        const response = await fetch(`${API}/docs/${inspectedUser.uid}/status`, {
-            method: 'POST',
-            headers: h,
-            body: JSON.stringify({ status, reason })
-        });
-        
-        if (!response.ok) throw new Error('Falha ao atualizar status');
-        
-        showToast(`Documentação ${status}`, 'success');
+        const r = await fetch(`${API}/documents/verify`, { method: 'POST', headers: h, body: JSON.stringify({ uid: inspectedUser.uid, status, reason }) });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error);
+        showToast(d.message, 'success');
         closeDocModal();
-        await loadPendingDocs();
-        
-    } catch (err) {
-        console.error(err);
-        showToast('Erro ao validar documento.', 'error');
-    }
+        refreshSection();
+    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 async function loadUsersDropdown() {
@@ -502,40 +527,7 @@ async function loadLogs() {
     }).join('');
 }
 
-// === DOCUMENT VERIFICATION ===
-function inspectDoc(uid) {
-    const u = pendingUsers.find(x => x.uid === uid);
-    if (!u) return;
-    inspectedUser = u;
-    document.getElementById('docName').innerText = u.name || '—';
-    document.getElementById('docCpf').innerText = u.cpf || u.cnpj || '—';
-    document.getElementById('docVehicle').innerText = u.vehicle || '—';
-    const frame = document.getElementById('docFrame');
-    if (u.documentsUrl || u.cnhUrl) {
-        frame.innerHTML = `<img src="${u.documentsUrl||u.cnhUrl}" alt="Documento" onerror="this.parentElement.innerHTML='<div style=\\'padding:24px;text-align:center;color:var(--text-m)\\'>Não foi possível carregar.</div>'">`;
-    } else {
-        frame.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-m)"><i class="ph ph-image-square" style="font-size:64px"></i><p>Nenhum arquivo enviado.</p></div>';
-    }
-    toggleReject(false);
-    document.getElementById('docModal').classList.add('active');
-}
-function closeDocModal() { document.getElementById('docModal').classList.remove('active'); inspectedUser = null; }
-function toggleReject(show) { document.getElementById('rejectArea').style.display = show ? 'block' : 'none'; if (!show) document.getElementById('rejectReason').value = ''; }
 
-async function verifyDoc(status) {
-    if (!inspectedUser) return;
-    const reason = document.getElementById('rejectReason').value.trim();
-    if (status === 'rejected' && !reason) { showToast('Informe o motivo da rejeição.', 'error'); return; }
-    try {
-        const h = await getHeaders();
-        const r = await fetch(`${API}/documents/verify`, { method: 'POST', headers: h, body: JSON.stringify({ uid: inspectedUser.uid, status, reason }) });
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error);
-        showToast(d.message, 'success');
-        closeDocModal();
-        refreshSection();
-    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
-}
 
 // === NOTIFICATIONS ===
 async function handleSendNotification(e) {
