@@ -265,21 +265,59 @@
             </div>
           </div>
         </div>
-      </section>
-
-      <!-- === SECTION: USERS === -->
+            <!-- === SECTION: USERS === -->
       <section id="section-users" class="dashboard-section">
+        <!-- Stats Cards for Users -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div class="bg-white rounded-xl border border-slate-200 p-5 flex items-center gap-4 card-shadow">
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl">
+              <i class="ph ph-users"></i>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Total de Usuários</span>
+              <h4 class="text-2xl font-black text-slate-800 mt-0.5" id="usersStatTotal">0</h4>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-5 flex items-center gap-4 card-shadow">
+            <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl">
+              <i class="ph ph-steering-wheel"></i>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Motoristas</span>
+              <h4 class="text-2xl font-black text-slate-800 mt-0.5" id="usersStatDrivers">0</h4>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-5 flex items-center gap-4 card-shadow">
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl">
+              <i class="ph ph-package"></i>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Embarcedores</span>
+              <h4 class="text-2xl font-black text-slate-800 mt-0.5" id="usersStatShippers">0</h4>
+            </div>
+          </div>
+        </div>
+
+        <!-- Users Table Card -->
         <div class="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-          <div class="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="px-6 py-5 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h3 class="text-lg font-bold text-brand">Gerenciar Usuários</h3>
-              <p class="text-sm text-slate-500">Todos os usuários cadastrados</p>
+              <p class="text-sm text-slate-500">Visualize e edite os perfis dos membros cadastrados</p>
             </div>
-            <select id="roleFilter" onchange="loadUsers()" class="text-sm border-slate-200 rounded-md focus:ring-brand-accent px-3 py-2 bg-slate-50 outline-none">
-              <option value="">Todos os perfis</option>
-              <option value="driver">Motoristas</option>
-              <option value="shipper">Embarcadores</option>
-            </select>
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+              <!-- Search Input -->
+              <div class="relative flex-1 sm:flex-initial">
+                <i class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                <input type="text" id="userSearchInput" oninput="filterAndRenderUsers()" placeholder="Buscar por nome, email, UID..." class="w-full sm:w-64 pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+              </div>
+              <!-- Profile Filter -->
+              <select id="roleFilter" onchange="loadUsers()" class="text-sm border-slate-200 rounded-lg focus:ring-brand-accent px-4 py-2 bg-slate-50 outline-none">
+                <option value="">Todos os perfis</option>
+                <option value="driver">Motoristas (Transportadores)</option>
+                <option value="shipper">Embarcedores (Clientes)</option>
+              </select>
+            </div>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left whitespace-nowrap">
@@ -288,13 +326,13 @@
                   <th class="px-6 py-4">Usuário</th>
                   <th class="px-6 py-4">E-mail</th>
                   <th class="px-6 py-4">Telefone</th>
-                  <th class="px-6 py-4">Role</th>
+                  <th class="px-6 py-4">Função</th>
                   <th class="px-6 py-4">Status Doc</th>
                   <th class="px-6 py-4">Ações</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 text-sm" id="usersTableBody">
-                <tr><td colspan="6" class="text-center py-8 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
+                <tr><td colspan="6" class="text-center py-12 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
               </tbody>
             </table>
           </div>
@@ -555,82 +593,89 @@
         
         <!-- === DETAIL VIEW (NEW) === -->
         <div id="docsDetailView" style="display: none;" class="p-4 md:p-8 bg-slate-50 min-h-full">
-          <button onclick="closeDocDetail()" class="mb-6 flex items-center gap-2 text-slate-500 hover:text-blue-700 font-medium transition-colors">
-            <i class="ph ph-arrow-left text-lg"></i> Voltar para a lista
-          </button>
-          
-          <!-- Page Header & Status -->
-          <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-            <div>
-              <h2 class="text-xl md:text-2xl font-bold text-blue-800">Verificar Documento</h2>
-              <p class="text-sm text-slate-500 mt-1" id="detailDocProtocol">Protocolo: #DOC-0000 • Motorista: ---</p>
-            </div>
-            <div class="flex items-center gap-4">
-              <div id="detailDocStatusBadge" class="px-4 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
-                <span class="text-xs font-bold tracking-wider" id="detailDocStatusText">EM ANÁLISE</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <!-- Document View Area (8/12) -->
-            <section class="lg:col-span-8 flex flex-col gap-6">
-              <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                  <span class="text-xs font-bold text-slate-600 uppercase tracking-wider" id="currentDocLabel">DOCUMENTO SELECIONADO</span>
-                  <div class="flex items-center gap-2">
-                    <button class="p-1.5 hover:bg-slate-200 text-slate-500 rounded transition-colors" onclick="zoomDoc(0.2)"><i class="ph ph-magnifying-glass-plus text-xl"></i></button>
-                    <button class="p-1.5 hover:bg-slate-200 text-slate-500 rounded transition-colors" onclick="zoomDoc(-0.2)"><i class="ph ph-magnifying-glass-minus text-xl"></i></button>
-                    <button class="p-1.5 hover:bg-slate-200 text-slate-500 rounded transition-colors" onclick="rotateDoc()"><i class="ph ph-arrow-clockwise text-xl"></i></button>
-                    <button class="p-1.5 hover:bg-slate-200 text-slate-500 rounded transition-colors" onclick="downloadCurrentDoc()"><i class="ph ph-download-simple text-xl"></i></button>
-                  </div>
-                </div>
-                <div class="relative bg-slate-200 p-6 min-h-[500px] flex items-center justify-center overflow-hidden" id="docImageContainer">
-                  <img id="mainDocImage" src="" alt="Documento" class="max-w-full max-h-[600px] object-contain transition-transform duration-200 shadow-lg" style="transform: scale(1) rotate(0deg);">
-                  <div id="noDocState" class="hidden flex-col items-center justify-center text-slate-400">
-                    <i class="ph ph-file-dashed text-6xl mb-4 text-slate-300"></i>
-                    <p class="font-medium">Nenhum documento para exibir</p>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Thumbnails/Tabs -->
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="docThumbnailsContainer">
-                <!-- Generated dynamically in JS -->
-              </div>
-            </section>
+          <div class="max-w-6xl mx-auto">
+            <button onclick="closeDocDetail()" class="mb-6 inline-flex items-center gap-2 px-4 py-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-lg text-sm font-semibold transition-all shadow-sm">
+              <i class="ph ph-arrow-left text-lg"></i> Voltar para a lista
+            </button>
             
-            <!-- Evaluation Form Area (4/12) -->
-            <section class="lg:col-span-4 sticky top-24">
-              <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                <div class="p-5 border-b border-slate-200 bg-blue-50/30">
-                  <h3 class="text-lg font-bold text-blue-800">Avaliação de Dados</h3>
-                  <p class="text-sm text-slate-500 mt-1">Confirme se os dados lidos correspondem ao documento físico.</p>
-                </div>
-                <form class="p-5 space-y-6" id="evalForm">
-                  <div id="evalFieldsContainer" class="space-y-4">
-                    <!-- Dynamic fields -->
-                  </div>
-                  
-                  <div id="rejectAreaNew" class="hidden p-4 bg-red-50 border border-red-100 rounded-lg animate-fadeIn">
-                     <label class="block text-xs font-bold text-red-700 mb-2">Motivo da Rejeição (Enviado ao usuário)</label>
-                     <textarea id="rejectReasonNew" class="w-full border border-red-200 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 bg-white" rows="2" placeholder="Ex: CNH vencida, imagem ilegível, dados não conferem..."></textarea>
-                  </div>
-                  
-                  <div class="pt-5 border-t border-slate-100 space-y-5">
-                    <div class="bg-slate-50 p-4 rounded-lg flex items-start gap-3 border border-slate-100">
-                      <i class="ph ph-info text-slate-400 mt-0.5 text-lg"></i>
-                      <p class="text-xs text-slate-600 leading-relaxed">Aprovar o documento liberará o motorista para assumir novas cargas no sistema PegaFrete.</p>
-                    </div>
-                    <div class="flex gap-3">
-                      <button class="flex-1 py-3 border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors" type="button" onclick="rejectVerification()">REPROVAR</button>
-                      <button class="flex-[2] py-3 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md transition-all transform active:scale-95" type="button" onclick="approveVerification()">SALVAR AVALIAÇÃO</button>
-                    </div>
-                  </div>
-                </form>
+            <!-- Page Header & Status -->
+            <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <div>
+                <h2 class="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2">
+                  <i class="ph ph-shield-check text-blue-600"></i> Verificar Documento
+                </h2>
+                <p class="text-sm text-slate-500 mt-1" id="detailDocProtocol">Protocolo: #DOC-0000 • Motorista: ---</p>
               </div>
-            </section>
+              <div>
+                <div id="detailDocStatusBadge" class="px-4 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-full flex items-center gap-2 shadow-sm">
+                  <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                  <span class="text-xs font-bold tracking-wider" id="detailDocStatusText">EM ANÁLISE</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              <!-- Document View Area (8/12) -->
+              <section class="lg:col-span-8 flex flex-col gap-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+                  <div class="bg-slate-950 px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider" id="currentDocLabel">DOCUMENTO SELECIONADO</span>
+                    <div class="flex items-center gap-1.5">
+                      <button class="w-8 h-8 flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors" onclick="zoomDoc(0.2)" title="Aumentar Zoom"><i class="ph ph-magnifying-glass-plus text-lg"></i></button>
+                      <button class="w-8 h-8 flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors" onclick="zoomDoc(-0.2)" title="Diminuir Zoom"><i class="ph ph-magnifying-glass-minus text-lg"></i></button>
+                      <button class="w-8 h-8 flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors" onclick="rotateDoc()" title="Rotacionar"><i class="ph ph-arrow-clockwise text-lg"></i></button>
+                      <span class="w-px h-5 bg-slate-800 mx-1"></span>
+                      <button class="w-8 h-8 flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors" onclick="downloadCurrentDoc()" title="Baixar Documento"><i class="ph ph-download-simple text-lg"></i></button>
+                    </div>
+                  </div>
+                  <div class="relative bg-slate-950/80 p-6 min-h-[500px] flex items-center justify-center overflow-hidden" id="docImageContainer" style="background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 24px 24px;">
+                    <img id="mainDocImage" src="" alt="Documento" class="max-w-full max-h-[580px] object-contain transition-transform duration-200 shadow-2xl rounded" style="transform: scale(1) rotate(0deg);">
+                    <div id="noDocState" class="hidden flex-col items-center justify-center text-slate-500 py-12">
+                      <i class="ph ph-file-dashed text-6xl mb-4 text-slate-600"></i>
+                      <p class="font-medium text-slate-400">Nenhum documento para exibir</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Thumbnails/Tabs -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="docThumbnailsContainer">
+                  <!-- Generated dynamically in JS -->
+                </div>
+              </section>
+              
+              <!-- Evaluation Form Area (4/12) -->
+              <section class="lg:col-span-4 sticky top-24">
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-md overflow-hidden">
+                  <div class="p-5 border-b border-slate-100 bg-slate-50/50">
+                    <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                      <i class="ph ph-clipboard-text text-blue-600 text-lg"></i> Dados do Cadastro
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Confirme se os dados preenchidos correspondem ao documento físico.</p>
+                  </div>
+                  <form class="p-5 space-y-6" id="evalForm">
+                    <div id="evalFieldsContainer" class="space-y-4">
+                      <!-- Dynamic fields -->
+                    </div>
+                    
+                    <div id="rejectAreaNew" class="hidden p-4 bg-red-50 border border-red-100 rounded-xl animate-fadeIn">
+                       <label class="block text-xs font-bold text-red-700 mb-2 uppercase tracking-wider">Motivo da Rejeição</label>
+                       <textarea id="rejectReasonNew" class="w-full border border-red-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 bg-white placeholder-slate-400" rows="3" placeholder="Ex: CNH vencida, imagem ilegível, dados não conferem..."></textarea>
+                    </div>
+                    
+                    <div class="pt-5 border-t border-slate-100 space-y-4">
+                      <div class="bg-slate-50 p-4 rounded-xl flex items-start gap-3 border border-slate-100">
+                        <i class="ph ph-info text-blue-500 mt-0.5 text-lg"></i>
+                        <p class="text-xs text-slate-500 leading-relaxed">Selecione se cada campo está correto (verde) ou incorreto (vermelho). Para reprovar o cadastro inteiro, clique em reprovar.</p>
+                      </div>
+                      <div class="flex gap-3">
+                        <button class="flex-1 py-3 border border-slate-200 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl text-sm font-bold transition-all" type="button" onclick="rejectVerification()">REPROVAR</button>
+                        <button class="flex-[2] py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-600/10 hover:shadow-lg transition-all transform active:scale-[0.98]" type="button" onclick="approveVerification()">APROVAR DADOS</button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </section>
+            </div>
           </div>
         </div>
       </section>

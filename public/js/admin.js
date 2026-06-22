@@ -167,24 +167,98 @@ async function loadStats() {
     set('statTotal', (d.shippers || 0) + (d.drivers || 0));
 }
 
+let currentUsersList = [];
+
 async function loadUsers() {
     const h = await getHeaders();
     const role = document.getElementById('roleFilter')?.value || '';
     const url = role ? `${API}/users?role=${role}` : `${API}/users`;
     const resObj = await request(url, { headers: h });
-    const users = resObj.users || [];
+    currentUsersList = resObj.users || [];
+    updateUsersStats();
+    filterAndRenderUsers();
+}
+
+function updateUsersStats() {
+    const total = currentUsersList.length;
+    const drivers = currentUsersList.filter(u => u.role === 'driver').length;
+    const shippers = currentUsersList.filter(u => u.role === 'shipper').length;
+    
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = val;
+    };
+    setVal('usersStatTotal', total);
+    setVal('usersStatDrivers', drivers);
+    setVal('usersStatShippers', shippers);
+}
+
+function filterAndRenderUsers() {
+    const q = document.getElementById('userSearchInput')?.value.trim().toLowerCase() || '';
     const tbody = document.getElementById('usersTableBody');
-    if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6">Nenhum usuário encontrado.</td></tr>'; return; }
-    tbody.innerHTML = users.map(u => {
+    if (!tbody) return;
+
+    let filtered = [...currentUsersList];
+    if (q) {
+        filtered = filtered.filter(u => 
+            (u.name && u.name.toLowerCase().includes(q)) ||
+            (u.email && u.email.toLowerCase().includes(q)) ||
+            (u.uid && u.uid.toLowerCase().includes(q)) ||
+            (u.phone && u.phone.includes(q))
+        );
+    }
+
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-slate-500"><i class="ph ph-users-three text-4xl mb-2 text-slate-300"></i><p class="font-bold">Nenhum usuário correspondente</p></td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map((u, idx) => {
         const init = u.name ? u.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() : 'U';
         const roleLabel = u.role === 'driver' ? 'Motorista' : u.role === 'shipper' ? 'Embarcador' : 'Admin';
-        const docBadge = u.documentStatus === 'verified' ? 'badge-green' : u.documentStatus === 'pending' ? 'badge-purple' : 'badge-orange';
-        return `<tr>
-            <td><div class="table-user"><div class="user-initials">${init}</div><div><span class="user-meta-name">${san(u.name)}</span><br><span style="font-size:11px;color:var(--text-m)">UID: ${u.uid.substring(0,10)}…</span></div></div></td>
-            <td>${san(u.email)}</td><td>${san(u.phone||'—')}</td>
-            <td><span class="badge-inline badge-orange">${roleLabel}</span></td>
-            <td><span class="badge-inline ${docBadge}">${san(u.documentStatus||'N/A')}</span></td>
-            <td><button class="btn btn-secondary btn-sm" onclick="editUser('${u.uid}')"><i class="ph ph-pencil"></i></button></td>
+        
+        let roleBadge = 'bg-blue-50 text-blue-700 border border-blue-100';
+        if (u.role === 'shipper') roleBadge = 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+        else if (u.role === 'admin') roleBadge = 'bg-purple-50 text-purple-700 border border-purple-100';
+
+        let docBadge = 'bg-slate-50 text-slate-600 border border-slate-200';
+        let docStatus = u.documentStatus || u.docStatus || 'Pendente';
+        if (docStatus === 'verified' || docStatus === 'Aprovado') {
+            docBadge = 'bg-green-50 text-green-700 border border-green-200';
+            docStatus = 'Verificado';
+        } else if (docStatus === 'pending' || docStatus === 'Pendente' || docStatus === 'Em Análise') {
+            docBadge = 'bg-amber-50 text-amber-700 border border-amber-250';
+            docStatus = 'Pendente';
+        } else if (docStatus === 'rejected' || docStatus === 'Reprovado') {
+            docBadge = 'bg-red-50 text-red-700 border border-red-200';
+            docStatus = 'Reprovado';
+        }
+
+        const zebraClass = idx % 2 === 0 ? '' : 'bg-[#f8f9fb]';
+
+        return `<tr class="${zebraClass} hover:bg-blue-50/40 transition-colors">
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-sm font-bold shadow-md shadow-blue-500/10">${init}</div>
+                <div>
+                  <span class="font-bold text-slate-800">${san(u.name)}</span>
+                  <p class="text-[10px] font-mono text-slate-400 mt-0.5">UID: ${u.uid.substring(0,10)}…</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 text-slate-600 font-medium">${san(u.email)}</td>
+            <td class="px-6 py-4 text-slate-500 font-mono text-xs">${san(u.phone||'—')}</td>
+            <td class="px-6 py-4">
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold ${roleBadge}">${roleLabel}</span>
+            </td>
+            <td class="px-6 py-4">
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${docBadge}">${docStatus}</span>
+            </td>
+            <td class="px-6 py-4">
+              <button class="w-9 h-9 inline-flex items-center justify-center rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition-all shadow-sm" onclick="editUser('${u.uid}')" title="Editar Usuário">
+                <i class="ph ph-pencil-simple text-lg"></i>
+              </button>
+            </td>
         </tr>`;
     }).join('');
 }
@@ -551,13 +625,13 @@ function inspectDoc(uid) {
     const badge = document.getElementById('detailDocStatusBadge');
     const text = document.getElementById('detailDocStatusText');
     if (u.docStatus === 'Aprovado') {
-        badge.className = 'px-4 py-1.5 bg-green-50 border border-green-200 text-green-700 rounded-full flex items-center gap-2';
+        badge.className = 'px-4 py-2 bg-green-50 border border-green-200 text-green-700 rounded-full flex items-center gap-2 shadow-sm';
         text.innerText = 'VERIFICADO';
     } else if (u.docStatus === 'Reprovado') {
-        badge.className = 'px-4 py-1.5 bg-red-50 border border-red-200 text-red-700 rounded-full flex items-center gap-2';
+        badge.className = 'px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-full flex items-center gap-2 shadow-sm';
         text.innerText = 'REPROVADO';
     } else {
-        badge.className = 'px-4 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full flex items-center gap-2';
+        badge.className = 'px-4 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-full flex items-center gap-2 shadow-sm';
         text.innerText = 'EM ANÁLISE';
     }
 
@@ -569,21 +643,34 @@ function inspectDoc(uid) {
         { id: 'placa', label: 'Placa', value: u.placa }
     ];
 
+    const icons = {
+        phone: 'ph ph-phone',
+        vehicle: 'ph ph-truck',
+        antt: 'ph ph-hash',
+        cnh: 'ph ph-identification-card',
+        placa: 'ph ph-credit-card'
+    };
+
     const fieldsContainer = document.getElementById('evalFieldsContainer');
-    fieldsContainer.innerHTML = fields.map(f => `
-        <div class="space-y-2 eval-field-row" data-field="${f.id}">
-          <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${f.label}</label>
+    fieldsContainer.innerHTML = fields.map(f => {
+        const iconClass = icons[f.id] || 'ph ph-info';
+        return `
+        <div class="space-y-1.5 eval-field-row" data-field="${f.id}">
+          <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">${f.label}</label>
           <div class="flex items-center gap-2">
-            <input class="flex-1 border border-slate-200 rounded-lg p-2.5 text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50" type="text" value="${san(f.value || 'Não informado')}" readonly/>
-            <button class="w-11 h-11 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-colors btn-check-field" type="button" onclick="toggleFieldStatus(this, 'ok')">
-              <i class="ph-fill ph-check-circle text-xl"></i>
+            <div class="relative flex-1">
+              <i class="${iconClass} absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
+              <input class="w-full border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm font-semibold text-slate-800 bg-slate-50 focus:outline-none" type="text" value="${san(f.value || 'Não informado')}" readonly/>
+            </div>
+            <button class="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-all btn-check-field shrink-0" type="button" onclick="toggleFieldStatus(this, 'ok')" title="Validar campo">
+              <i class="ph-fill ph-check-circle text-lg"></i>
             </button>
-            <button class="w-11 h-11 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors btn-cancel-field" type="button" onclick="toggleFieldStatus(this, 'error')">
-              <i class="ph-fill ph-x-circle text-xl"></i>
+            <button class="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all btn-cancel-field shrink-0" type="button" onclick="toggleFieldStatus(this, 'error')" title="Rejeitar campo">
+              <i class="ph-fill ph-x-circle text-lg"></i>
             </button>
           </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 
     const docUrls = u.documentUrls || {};
     const labels = {
@@ -608,11 +695,12 @@ function inspectDoc(uid) {
             const indStatus = (u.documentStatuses && u.documentStatuses[key]) ? u.documentStatuses[key] : 'Pendente';
             if (!firstDocUrl) { firstDocUrl = docUrls[key]; firstDocLabel = label; }
             thumbsHtml += `
-            <div class="flex flex-col gap-2">
-              <div class="bg-white border border-slate-200 p-3 rounded-lg cursor-pointer hover:border-blue-400 hover:shadow-md transition-all doc-thumb" onclick="setMainDoc('${docUrls[key]}', '${label}', this)">
-                <p class="text-[10px] font-bold text-slate-600 uppercase text-center truncate">${label}</p>
+            <div class="flex flex-col gap-2 bg-white border border-slate-200 p-2.5 rounded-xl transition-all hover:shadow-sm">
+              <div class="cursor-pointer transition-all doc-thumb text-center flex flex-col items-center justify-center p-2 rounded-lg gap-1.5" onclick="setMainDoc('${docUrls[key]}', '${label}', this)">
+                <i class="ph ph-file-text text-xl text-blue-500"></i>
+                <p class="text-[9px] font-extrabold text-slate-600 uppercase tracking-wider truncate w-full">${label}</p>
               </div>
-              <select class="ind-doc-status text-xs font-bold p-1 rounded-md border border-slate-200 outline-none text-slate-600 bg-white" data-key="${key}">
+              <select class="ind-doc-status text-[10px] font-bold p-1.5 rounded-md border border-slate-200 outline-none text-slate-600 bg-slate-50 cursor-pointer focus:ring-1 focus:ring-blue-500/20" data-key="${key}">
                   <option value="Pendente" ${indStatus==='Pendente'?'selected':''}>Pendente</option>
                   <option value="Aprovado" ${indStatus==='Aprovado'?'selected':''}>Aprovar</option>
                   <option value="Reprovado" ${indStatus==='Reprovado'?'selected':''}>Recusar</option>
@@ -623,7 +711,7 @@ function inspectDoc(uid) {
 
     if (firstDocUrl) {
         thumbsContainer.innerHTML = thumbsHtml;
-        setMainDoc(firstDocUrl, firstDocLabel, thumbsContainer.firstElementChild);
+        setMainDoc(firstDocUrl, firstDocLabel, thumbsContainer.firstElementChild?.querySelector('.doc-thumb'));
         mainImg.style.display = 'block';
         noDocState.style.display = 'none';
     } else {
@@ -647,10 +735,10 @@ function setMainDoc(url, label, thumbEl) {
     updateDocTransform();
 
     document.querySelectorAll('.doc-thumb').forEach(t => {
-        t.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+        t.classList.remove('bg-blue-50', 'ring-1', 'ring-blue-400');
     });
     if (thumbEl) {
-        thumbEl.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+        thumbEl.classList.add('bg-blue-50', 'ring-1', 'ring-blue-400');
     }
 }
 
