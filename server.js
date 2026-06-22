@@ -761,6 +761,21 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
           const data = doc.data();
           if (data.token) tokens.push(data.token);
         });
+
+        // Fallback: Se a coleção global fcm_tokens não retornou nenhum token, busca na coleção users
+        if (tokens.length === 0) {
+          let usersQuery = db.collection('users').where('fcmToken', '!=', null);
+          if (targetUid === 'shippers') {
+            usersQuery = usersQuery.where('role', '==', 'shipper');
+          } else if (targetUid === 'drivers') {
+            usersQuery = usersQuery.where('role', '==', 'driver');
+          }
+          const usersSnap = await usersQuery.get();
+          usersSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.fcmToken) tokens.push(data.fcmToken);
+          });
+        }
       } else {
         // Usuário individual
         const fcmDoc = await db.collection('fcm_tokens').doc(targetUid).get();
