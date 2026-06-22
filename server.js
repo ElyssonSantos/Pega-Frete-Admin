@@ -813,7 +813,7 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
             },
             webpush: {
               notification: {
-                icon: '/orange_truck_avatar.png',
+                icon: '/pegafrete_logo_new.jpg',
                 badge: '/favicon.svg',
                 tag: 'pegafrete-notification'
               },
