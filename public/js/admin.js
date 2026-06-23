@@ -61,7 +61,7 @@ async function handleLogin(e) {
     try {
         await auth.signInWithEmailAndPassword(
             document.getElementById('email').value.trim(),
-            document.getElementById('password').value
+            document.getElementById('password').value.trim()
         );
         showToast('Login efetuado! Verificando permissões...', 'info');
     } catch (err) {
