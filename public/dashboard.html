@@ -93,8 +93,8 @@
   <aside class="w-64 sidebar-border bg-white flex flex-col flex-shrink-0 sidebar-wrapper" id="sidebar">
     <!-- Logo Section -->
     <div class="p-6 flex items-center gap-3 border-b border-slate-100">
-      <div class="w-10 h-10 bg-brand-blue rounded-lg flex items-center justify-center shadow-md text-white">
-        <i class="ph-fill ph-shield-checkered text-xl"></i>
+      <div class="w-12 h-12 flex items-center justify-center overflow-hidden">
+        <img src="PegaFrete.png" alt="PegaFrete Logo" class="h-full w-full object-contain">
       </div>
       <span class="text-xl font-bold tracking-tight text-brand">PegaFrete</span>
       <!-- Mobile Close Btn -->
@@ -260,8 +260,8 @@
               </div>
             </div>
             <div class="flex items-center gap-6">
-              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-brand-blue"></span><span class="text-xs font-bold text-slate-600">Shippers</span></div>
-              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-orange-500"></span><span class="text-xs font-bold text-slate-600">Drivers</span></div>
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-brand-blue"></span><span class="text-xs font-bold text-slate-600">Embarcadores</span></div>
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-orange-500"></span><span class="text-xs font-bold text-slate-600">Motoristas</span></div>
             </div>
           </div>
         </div>
@@ -269,17 +269,57 @@
 
       <!-- === SECTION: USERS === -->
       <section id="section-users" class="dashboard-section">
+        <!-- Stats Cards for Users -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div class="bg-white rounded-xl border border-slate-200 p-5 flex items-center gap-4 card-shadow">
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl">
+              <i class="ph ph-users"></i>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Total de Usuários</span>
+              <h4 class="text-2xl font-black text-slate-800 mt-0.5" id="usersStatTotal">0</h4>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-5 flex items-center gap-4 card-shadow">
+            <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl">
+              <i class="ph ph-steering-wheel"></i>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Motoristas</span>
+              <h4 class="text-2xl font-black text-slate-800 mt-0.5" id="usersStatDrivers">0</h4>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-5 flex items-center gap-4 card-shadow">
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl">
+              <i class="ph ph-package"></i>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Embarcedores</span>
+              <h4 class="text-2xl font-black text-slate-800 mt-0.5" id="usersStatShippers">0</h4>
+            </div>
+          </div>
+        </div>
+
+        <!-- Users Table Card -->
         <div class="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-          <div class="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="px-6 py-5 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h3 class="text-lg font-bold text-brand">Gerenciar Usuários</h3>
-              <p class="text-sm text-slate-500">Todos os usuários cadastrados</p>
+              <p class="text-sm text-slate-500">Visualize e edite os perfis dos membros cadastrados</p>
             </div>
-            <select id="roleFilter" onchange="loadUsers()" class="text-sm border-slate-200 rounded-md focus:ring-brand-accent px-3 py-2 bg-slate-50 outline-none">
-              <option value="">Todos os perfis</option>
-              <option value="driver">Motoristas</option>
-              <option value="shipper">Embarcadores</option>
-            </select>
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+              <!-- Search Input -->
+              <div class="relative flex-1 sm:flex-initial">
+                <i class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                <input type="text" id="userSearchInput" oninput="filterAndRenderUsers()" placeholder="Buscar por nome, email, UID..." class="w-full sm:w-64 pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+              </div>
+              <!-- Profile Filter -->
+              <select id="roleFilter" onchange="loadUsers()" class="text-sm border-slate-200 rounded-lg focus:ring-brand-accent px-4 py-2 bg-slate-50 outline-none">
+                <option value="">Todos os perfis</option>
+                <option value="driver">Motoristas (Transportadores)</option>
+                <option value="shipper">Embarcedores (Clientes)</option>
+              </select>
+            </div>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left whitespace-nowrap">
@@ -288,13 +328,13 @@
                   <th class="px-6 py-4">Usuário</th>
                   <th class="px-6 py-4">E-mail</th>
                   <th class="px-6 py-4">Telefone</th>
-                  <th class="px-6 py-4">Role</th>
+                  <th class="px-6 py-4">Função</th>
                   <th class="px-6 py-4">Status Doc</th>
                   <th class="px-6 py-4">Ações</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 text-sm" id="usersTableBody">
-                <tr><td colspan="6" class="text-center py-8 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
+                <tr><td colspan="6" class="text-center py-12 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
               </tbody>
             </table>
           </div>
@@ -433,30 +473,211 @@
       </section>
 
       <!-- === SECTION: DOCUMENTS === -->
-      <section id="section-documents" class="dashboard-section">
-        <div class="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-          <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 class="text-lg font-bold text-brand">Fila de Validação de Documentos</h3>
-              <p class="text-sm text-slate-500">Verifique os documentos</p>
+      <section id="section-documents" class="dashboard-section bg-[#f8f9fb] p-0 md:p-0 relative h-full">
+        
+        <!-- === LIST VIEW === -->
+        <div id="docsListView" class="p-4 md:p-8">
+          <!-- Barra de Ações -->
+          <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
+            <div class="relative w-full md:w-96">
+              <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+              <input type="text" id="docSearchInput" oninput="filterDocsTable()" placeholder="Buscar por ID, nome ou placa..." class="w-full pl-10 pr-4 py-2 bg-white border border-[#DFE1E6] rounded text-sm text-[#172B4D] focus:outline-none focus:border-[#003d9b] focus:ring-1 focus:ring-[#003d9b] transition-all">
             </div>
-            <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold" id="verifyCount">0 Pendentes</span>
+            
+            <div class="flex items-center gap-3">
+              <button onclick="showDocsHelp()" title="Ajuda" class="w-10 h-10 flex items-center justify-center rounded border border-[#DFE1E6] bg-white text-[#172B4D] hover:bg-gray-50 transition-colors"><i class="ph ph-question text-lg"></i></button>
+              <button onclick="switchSection('settings')" title="Configurações" class="w-10 h-10 flex items-center justify-center rounded border border-[#DFE1E6] bg-white text-[#172B4D] hover:bg-gray-50 transition-colors"><i class="ph ph-gear text-lg"></i></button>
+            </div>
           </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left whitespace-nowrap">
-              <thead>
-                <tr class="bg-slate-50 text-slate-500 text-[11px] uppercase font-bold tracking-wider">
-                  <th class="px-6 py-4">Usuário</th>
-                  <th class="px-6 py-4">E-mail</th>
-                  <th class="px-6 py-4">Telefone</th>
-                  <th class="px-6 py-4">Cidade/Veículo</th>
-                  <th class="px-6 py-4">Ações</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100 text-sm" id="docsTableBody">
-                <tr><td colspan="5" class="text-center py-8 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
-              </tbody>
-            </table>
+
+          <!-- Abas & Filtros -->
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <div class="flex bg-white rounded border border-[#DFE1E6] p-1 shadow-sm" id="docTabsContainer">
+              <button onclick="setDocTab('all')" id="docTabAll" class="px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded text-[#003d9b] bg-blue-50 border-b-2 border-[#003d9b] transition-all">Todos</button>
+              <button onclick="setDocTab('pending')" id="docTabPending" class="px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded text-[#737685] hover:text-[#172B4D] hover:bg-gray-50 transition-all">Pendentes</button>
+              <button onclick="setDocTab('verified')" id="docTabVerified" class="px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded text-[#737685] hover:text-[#172B4D] hover:bg-gray-50 transition-all">Verificados</button>
+            </div>
+            
+            <div class="flex items-center gap-4 text-sm font-medium text-[#737685]">
+              <div class="flex items-center gap-2">
+                <span class="uppercase text-[11px] font-bold">Filtrar:</span>
+                <select id="docDateFilter" onchange="filterDocsTable()" class="text-[#172B4D] text-xs font-bold bg-white border border-[#DFE1E6] rounded px-2 py-1 cursor-pointer focus:outline-none focus:border-[#003d9b]">
+                  <option value="all">Todas as datas</option>
+                  <option value="today">Hoje</option>
+                  <option value="week">Esta semana</option>
+                  <option value="month">Este mês</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-2">
+                <select id="docRoleFilter" onchange="filterDocsTable()" class="text-[#172B4D] text-xs font-bold bg-white border border-[#DFE1E6] rounded px-2 py-1 cursor-pointer focus:outline-none focus:border-[#003d9b]">
+                  <option value="all">Todos os tipos</option>
+                  <option value="driver">Motoristas</option>
+                  <option value="shipper">Embarcadores</option>
+                </select>
+              </div>
+              <button onclick="exportDocsCSV()" class="ml-2 px-4 py-2 bg-white border border-[#DFE1E6] rounded text-xs font-bold text-[#172B4D] flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-colors">
+                <i class="ph ph-download-simple"></i> EXPORTAR CSV
+              </button>
+              <button onclick="refreshSection()" title="Atualizar" class="w-8 h-8 flex items-center justify-center bg-white border border-[#DFE1E6] rounded shadow-sm hover:bg-gray-50 text-[#172B4D] transition-colors">
+                <i class="ph ph-arrows-clockwise"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cartões de Estatísticas -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white border border-[#DFE1E6] rounded p-4 shadow-sm flex items-center gap-4">
+              <div class="w-10 h-10 rounded bg-[#f3f4f6] text-[#003d9b] flex items-center justify-center border border-[#DFE1E6]">
+                <i class="ph ph-files text-xl"></i>
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-[#737685] uppercase tracking-wider">Total de Documentos</p>
+                <p class="text-xl font-bold text-[#172B4D]" id="docsTotalActive">0</p>
+              </div>
+            </div>
+            <div class="bg-white border border-[#DFE1E6] rounded p-4 shadow-sm flex items-center gap-4">
+              <div class="w-10 h-10 rounded bg-orange-50 text-orange-500 flex items-center justify-center border border-orange-100">
+                <i class="ph ph-hourglass-high text-xl"></i>
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-[#737685] uppercase tracking-wider">Aguardando Aprovação</p>
+                <p class="text-xl font-bold text-[#172B4D]" id="docsPendingCount">0</p>
+              </div>
+            </div>
+            <div class="bg-white border border-[#DFE1E6] rounded p-4 shadow-sm flex items-center gap-4">
+              <div class="w-10 h-10 rounded bg-green-50 text-[#36B37E] flex items-center justify-center border border-green-100">
+                <i class="ph ph-seal-check text-xl"></i>
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-[#737685] uppercase tracking-wider">Verificados</p>
+                <p class="text-xl font-bold text-[#172B4D]" id="docsVerifiedToday">0</p>
+              </div>
+            </div>
+            <div class="bg-white border border-[#DFE1E6] rounded p-4 shadow-sm flex items-center gap-4">
+              <div class="w-10 h-10 rounded bg-red-50 text-[#ba1a1a] flex items-center justify-center border border-red-100">
+                <i class="ph ph-warning-circle text-xl"></i>
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-[#737685] uppercase tracking-wider">Reprovados</p>
+                <p class="text-xl font-bold text-[#172B4D]" id="docsFlagged">0</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabela -->
+          <div class="bg-white rounded border border-[#DFE1E6] shadow-sm overflow-hidden flex flex-col">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left whitespace-nowrap">
+                <thead class="bg-[#f3f4f6] sticky top-0 border-b border-[#DFE1E6]">
+                  <tr class="text-[#434654] text-[11px] uppercase font-bold tracking-wider">
+                    <th class="pl-6 pr-3 py-4 w-10"><input type="checkbox" id="docSelectAll" onchange="toggleAllDocCheckboxes(this)" class="rounded border-[#DFE1E6] text-[#003d9b] focus:ring-[#003d9b]"></th>
+                    <th class="px-3 py-4">Doc ID</th>
+                    <th class="px-3 py-4">Tipo</th>
+                    <th class="px-3 py-4">Transportador / Motorista</th>
+                    <th class="px-3 py-4">Placa</th>
+                    <th class="px-3 py-4">Data</th>
+                    <th class="px-3 py-4">Status</th>
+                    <th class="px-6 py-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[#DFE1E6] text-[13px] text-[#172B4D] font-medium" id="docsTableBody">
+                  <tr><td colspan="8" class="text-center py-12 text-[#737685]"><i class="ph ph-spinner ph-spin text-2xl"></i></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- Rodapé de Paginação -->
+            <div class="p-4 border-t border-[#DFE1E6] bg-[#f8f9fb] flex justify-between items-center text-xs font-bold text-[#737685] uppercase tracking-wider">
+              <span id="docsShowingCount">Exibindo 0 documentos</span>
+              <div class="flex items-center gap-1" id="docsPagination"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- === DETAIL VIEW (NEW) === -->
+        <div id="docsDetailView" style="display: none;" class="p-4 md:p-8 bg-slate-50 min-h-full">
+          <div class="max-w-6xl mx-auto">
+            <button onclick="closeDocDetail()" class="mb-6 inline-flex items-center gap-2 px-4 py-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-lg text-sm font-semibold transition-all shadow-sm">
+              <i class="ph ph-arrow-left text-lg"></i> Voltar para a lista
+            </button>
+            
+            <!-- Page Header & Status -->
+            <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <div>
+                <h2 class="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2">
+                  <i class="ph ph-shield-check text-blue-600"></i> Verificar Documento
+                </h2>
+                <p class="text-sm text-slate-500 mt-1" id="detailDocProtocol">Protocolo: #DOC-0000 • Motorista: ---</p>
+              </div>
+              <div>
+                <div id="detailDocStatusBadge" class="px-4 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-full flex items-center gap-2 shadow-sm">
+                  <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                  <span class="text-xs font-bold tracking-wider" id="detailDocStatusText">EM ANÁLISE</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              <!-- Document View Area (8/12) -->
+              <section class="lg:col-span-8 flex flex-col gap-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+                  <div class="bg-slate-950 px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider" id="currentDocLabel">DOCUMENTO SELECIONADO</span>
+                    <div class="flex items-center gap-1.5">
+                      <button class="w-8 h-8 flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors" onclick="zoomDoc(0.2)" title="Aumentar Zoom"><i class="ph ph-magnifying-glass-plus text-lg"></i></button>
+                      <button class="w-8 h-8 flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors" onclick="zoomDoc(-0.2)" title="Diminuir Zoom"><i class="ph ph-magnifying-glass-minus text-lg"></i></button>
+                      <button class="w-8 h-8 flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors" onclick="rotateDoc()" title="Rotacionar"><i class="ph ph-arrow-clockwise text-lg"></i></button>
+                      <span class="w-px h-5 bg-slate-800 mx-1"></span>
+                      <button class="w-8 h-8 flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors" onclick="downloadCurrentDoc()" title="Baixar Documento"><i class="ph ph-download-simple text-lg"></i></button>
+                    </div>
+                  </div>
+                  <div class="relative bg-slate-950/80 p-6 min-h-[500px] flex items-center justify-center overflow-hidden" id="docImageContainer" style="background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 24px 24px;">
+                    <img id="mainDocImage" src="" alt="Documento" class="max-w-full max-h-[580px] object-contain transition-transform duration-200 shadow-2xl rounded" style="transform: scale(1) rotate(0deg);">
+                    <div id="noDocState" class="hidden flex-col items-center justify-center text-slate-500 py-12">
+                      <i class="ph ph-file-dashed text-6xl mb-4 text-slate-600"></i>
+                      <p class="font-medium text-slate-400">Nenhum documento para exibir</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Thumbnails/Tabs -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="docThumbnailsContainer">
+                  <!-- Generated dynamically in JS -->
+                </div>
+              </section>
+              
+              <!-- Evaluation Form Area (4/12) -->
+              <section class="lg:col-span-4 sticky top-24">
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-md overflow-hidden">
+                  <div class="p-5 border-b border-slate-100 bg-slate-50/50">
+                    <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                      <i class="ph ph-clipboard-text text-blue-600 text-lg"></i> Dados do Cadastro
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Confirme se os dados preenchidos correspondem ao documento físico.</p>
+                  </div>
+                  <form class="p-5 space-y-6" id="evalForm">
+                    <div id="evalFieldsContainer" class="space-y-4">
+                      <!-- Dynamic fields -->
+                    </div>
+                    
+                    <div id="rejectAreaNew" class="hidden p-4 bg-red-50 border border-red-100 rounded-xl animate-fadeIn">
+                       <label class="block text-xs font-bold text-red-700 mb-2 uppercase tracking-wider">Motivo da Rejeição</label>
+                       <textarea id="rejectReasonNew" class="w-full border border-red-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 bg-white placeholder-slate-400" rows="3" placeholder="Ex: CNH vencida, imagem ilegível, dados não conferem..."></textarea>
+                    </div>
+                    
+                    <div class="pt-5 border-t border-slate-100 space-y-4">
+                      <div class="bg-slate-50 p-4 rounded-xl flex items-start gap-3 border border-slate-100">
+                        <i class="ph ph-info text-blue-500 mt-0.5 text-lg"></i>
+                        <p class="text-xs text-slate-500 leading-relaxed">Selecione se cada campo está correto (verde) ou incorreto (vermelho). Para reprovar o cadastro inteiro, clique em reprovar.</p>
+                      </div>
+                      <div class="flex gap-3">
+                        <button class="flex-1 py-3 border border-slate-200 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl text-sm font-bold transition-all" type="button" onclick="rejectVerification()">REPROVAR</button>
+                        <button class="flex-[2] py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-600/10 hover:shadow-lg transition-all transform active:scale-[0.98]" type="button" onclick="approveVerification()">APROVAR DADOS</button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </section>
+            </div>
           </div>
         </div>
       </section>
@@ -477,6 +698,24 @@
                   <option value="drivers">Todos os Transportadores</option>
                 </select>
               </div>
+              
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">Método de Envio</label>
+                <div class="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <label class="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+                    <input type="checkbox" id="notifySendInternal" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" checked>
+                    <span>Enviar como mensagem interna (Aba Mensagens)</span>
+                  </label>
+                  <label class="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+                    <input type="checkbox" id="notifySendPush" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <span class="flex items-center gap-1">
+                      Enviar como notificação Push externa (FCM)
+                      <span class="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-bold uppercase">Push</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1">Título</label>
                 <input type="text" id="notifyTitle" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none" placeholder="Ex: Aviso importante (Opcional)">
@@ -565,112 +804,58 @@
 
       <!-- === SECTION: SETUP === -->
       <section id="section-setup" class="dashboard-section">
-        <div class="bg-white rounded-xl border border-slate-200 card-shadow max-w-xl mx-auto overflow-hidden">
-          <div class="px-6 py-5 border-b border-slate-100 bg-slate-50">
-            <h3 class="text-lg font-bold text-brand flex items-center gap-2">
-              <i class="ph ph-shield-check text-blue-600"></i> Configurar Novo Admin
-            </h3>
-            <p class="text-sm text-slate-500">Fluxo seguro seguindo padrão Zero Trust</p>
-          </div>
-          <div class="p-6 space-y-6 text-slate-600">
-            <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 flex gap-3 text-sm text-blue-800">
-              <i class="ph-fill ph-info text-lg shrink-0 mt-0.5"></i>
-              <div>
-                <p class="font-semibold">Rota pública desativada por segurança</p>
-                <p class="mt-1 text-xs text-blue-700 leading-relaxed">
-                  Para impedir ataques de escalação de privilégios, a API pública de promoção de administradores foi completamente desativada. As promoções agora devem ser feitas diretamente no terminal local usando as credenciais privadas do servidor.
-                </p>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-              <h4 class="text-sm font-bold text-slate-800">Como promover um usuário:</h4>
-              <p class="text-xs">Abra o terminal na pasta do projeto administrativo e execute o script local:</p>
-              
-              <div class="bg-slate-950 text-slate-200 p-4 rounded-lg font-mono text-xs overflow-x-auto shadow-inner">
-                <code>node set_admin.js "usuario@email.com"</code>
-              </div>
-              
-              <p class="text-xs text-slate-400">Ou use o UID do Firebase:</p>
-              <div class="bg-slate-950 text-slate-200 p-4 rounded-lg font-mono text-xs overflow-x-auto shadow-inner">
-                <code>node set_admin.js "UID_DO_USUARIO"</code>
-              </div>
+        <div class="bg-white rounded-xl border border-slate-200 card-shadow max-w-4xl mx-auto overflow-hidden grid grid-cols-1 md:grid-cols-2">
+          
+          <!-- Adicionar Admin -->
+          <div class="p-6 space-y-6 border-b md:border-b-0 md:border-r border-slate-200">
+            <div>
+              <h3 class="text-lg font-bold text-brand flex items-center gap-2 mb-1">
+                <i class="ph ph-shield-plus text-blue-600"></i> Adicionar Administrador
+              </h3>
+              <p class="text-sm text-slate-500">Conceda acesso ao painel para novos usuários.</p>
             </div>
             
-            <div class="border-t border-slate-100 pt-4 flex items-center justify-between text-xs text-slate-400">
-              <span>Arquivo de automação: <code>set_admin.js</code></span>
-              <span class="text-green-600 font-medium">● Execução Local</span>
+            <form id="adminRoleForm" onsubmit="handleAdminRole(event)" class="space-y-4">
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">E-mail do Usuário</label>
+                <input type="email" id="newAdminEmail" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none" required placeholder="Ex: joao@email.com">
+                <p class="text-[10px] text-slate-400 mt-1">O usuário já deve estar cadastrado no PegaFrete.</p>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Cargo / Permissão</label>
+                <select id="newAdminRole" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-brand-accent outline-none">
+                  <option value="viewer">Visualizador (Somente leitura)</option>
+                  <option value="editor">Editor (Gerencia fretes e usuários)</option>
+                  <option value="owner">Proprietário (Acesso Total)</option>
+                </select>
+              </div>
+              <button type="submit" id="btnAdminRole" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg flex justify-center items-center gap-2 transition-colors">
+                <i class="ph ph-plus-circle text-lg"></i> Conceder Acesso
+              </button>
+            </form>
+          </div>
+          
+          <!-- Lista de Admins -->
+          <div class="p-6 flex flex-col bg-slate-50 h-[500px]">
+            <div>
+              <h3 class="text-lg font-bold text-brand flex items-center gap-2 mb-1">
+                <i class="ph ph-users-three text-blue-600"></i> Administradores Ativos
+              </h3>
+              <p class="text-sm text-slate-500 mb-4">Lista de quem tem acesso a este painel.</p>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto space-y-3 pr-2" id="adminsListContainer">
+              <div class="text-center py-8 text-slate-500"><i class="ph ph-spinner ph-spin text-2xl"></i></div>
             </div>
           </div>
+          
         </div>
       </section>
 
     </div>
   </main>
   
-  <!-- MODAL: Document Verify -->
-  <div id="docModal" class="modal-overlay">
-      <div class="modal-content">
-          <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h2 class="text-lg font-bold text-brand">Verificar Documento</h2>
-              <button class="text-slate-400 hover:text-slate-600 bg-white shadow-sm border rounded-md p-1" onclick="closeDocModal()"><i class="ph ph-x text-lg"></i></button>
-          </div>
-          <div class="p-6 overflow-y-auto">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                      <p class="text-sm font-semibold text-slate-600 mb-2">Arquivo enviado:</p>
-                      <div class="w-full h-64 bg-slate-100 border border-slate-200 border-dashed rounded-xl flex justify-center items-center overflow-hidden" id="docFrame"></div>
-                  </div>
-                  <div class="flex flex-col">
-                      <h3 class="text-xl font-bold text-brand mb-4" id="docName">—</h3>
-                      <div class="space-y-3 mb-6">
-                          <div class="flex justify-between border-b border-slate-100 pb-2">
-                              <span class="text-slate-500 text-sm">Telefone:</span>
-                              <strong class="text-brand text-sm" id="docPhone">—</strong>
-                          </div>
-                          <div class="flex justify-between border-b border-slate-100 pb-2">
-                              <span class="text-slate-500 text-sm">Veículo:</span>
-                              <strong class="text-brand text-sm" id="docVehicle">—</strong>
-                          </div>
-                          <div class="flex justify-between border-b border-slate-100 pb-2">
-                              <span class="text-slate-500 text-sm">ANTT/RNTRC:</span>
-                              <strong class="text-brand text-sm" id="docAntt">—</strong>
-                          </div>
-                          <div class="flex justify-between border-b border-slate-100 pb-2">
-                              <span class="text-slate-500 text-sm">CNH:</span>
-                              <strong class="text-brand text-sm" id="docCnhLabel">—</strong>
-                          </div>
-                          <div class="flex justify-between border-b border-slate-100 pb-2">
-                              <span class="text-slate-500 text-sm">Placa:</span>
-                              <strong class="text-brand text-sm" id="docPlaca">—</strong>
-                          </div>
-                      </div>
-                      
-                      <div class="mt-auto border-t border-slate-100 pt-4">
-                          <h4 class="text-sm font-bold text-brand mb-3">Ação:</h4>
-                          <div class="flex gap-3">
-                              <button class="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors" onclick="verifyDoc('verified')">
-                                  <i class="ph ph-check-circle"></i> Aprovar
-                              </button>
-                              <button class="flex-1 bg-white border border-red-500 text-red-500 hover:bg-red-50 py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors" onclick="toggleReject(true)">
-                                  <i class="ph ph-x-circle"></i> Rejeitar
-                              </button>
-                          </div>
-                          
-                          <div id="rejectArea" class="mt-4 p-4 bg-red-50 border border-red-100 rounded-lg" style="display:none">
-                              <label class="block text-xs font-bold text-red-600 mb-2">Motivo da rejeição (será enviado ao usuário)</label>
-                              <textarea id="rejectReason" class="w-full border border-red-200 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 mb-3 bg-white" rows="2" placeholder="Ex: Imagem ilegível, documento vencido..."></textarea>
-                              <div class="flex gap-2">
-                                  <button class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow-sm" onclick="verifyDoc('rejected')">Confirmar Rejeição</button>
-                                  <button class="bg-white text-slate-600 border text-xs font-bold py-1.5 px-3 rounded hover:bg-slate-50" onclick="toggleReject(false)">Cancelar</button>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      </div>
-  </div>
+
 
   <script src="js/admin.js"></script>
   <script>

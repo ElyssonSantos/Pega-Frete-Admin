@@ -311,7 +311,10 @@ app.get('/api/admin/pending-docs', verifyAdminToken, async (req, res) => {
 
     snapshot.forEach(doc => {
       const u = doc.data();
-      if (u.docStatus === 'Pendente' || u.docStatus === 'Em Análise' || u.documentStatus === 'pending') {
+      const hasDocs = u.documentUrls && Object.keys(u.documentUrls).length > 0;
+      const hasStatus = u.docStatus || u.documentStatus;
+      
+      if (hasDocs || hasStatus) {
         pendingUsers.push({
           uid: doc.id,
           name: u.nome || u.name,
@@ -322,8 +325,11 @@ app.get('/api/admin/pending-docs', verifyAdminToken, async (req, res) => {
           antt: u.antt || 'Não informado',
           cnh: u.cnh || 'Não informado',
           placa: u.placa || 'Não informado',
-          docStatus: u.docStatus || u.documentStatus,
-          documentUrls: u.documentUrls || {}
+          role: u.role,
+          docStatus: u.docStatus || u.documentStatus || 'Pendente',
+          documentUrls: u.documentUrls || {},
+          documentStatuses: u.documentStatuses || {},
+          createdAt: u.createdAt
         });
       }
     });
@@ -339,9 +345,9 @@ app.get('/api/admin/pending-docs', verifyAdminToken, async (req, res) => {
 app.post('/api/admin/docs/:uid/status', verifyAdminToken, async (req, res) => {
   try {
     const { uid } = req.params;
-    const { status, reason } = req.body;
+    const { status, reason, documentStatuses } = req.body;
     
-    if (!['Aprovado', 'Reprovado', 'Bloqueado'].includes(status)) {
+    if (!['Aprovado', 'Reprovado', 'Bloqueado', 'Pendente'].includes(status)) {
       return res.status(400).json({ error: 'Status inválido.' });
     }
 
@@ -354,6 +360,7 @@ app.post('/api/admin/docs/:uid/status', verifyAdminToken, async (req, res) => {
       documentStatus: status === 'Aprovado' ? 'verified' : (status === 'Reprovado' ? 'rejected' : 'pending')
     };
     if (reason) updateData.rejectionReason = reason;
+    if (documentStatuses) updateData.documentStatuses = documentStatuses;
 
     await userRef.update(updateData);
     await logSecurityEvent(req.user.uid, 'DOC_STATUS_CHANGE', `Atualizou documentação de ${uid} para ${status}`);
@@ -367,7 +374,7 @@ app.post('/api/admin/docs/:uid/status', verifyAdminToken, async (req, res) => {
         notificationText = 'Boas notícias! Seus documentos foram validados e aprovados. Você agora tem acesso total para aceitar cargas e negociar fretes.';
       }
     } else if (status === 'Reprovado') {
-      notificationText = `Atenção: Houve um problema na validação da sua documentação. Motivo: ${reason || 'Não informado.'} Acesse seu perfil para reenviar.`;
+      notificationText = `Atenção: Houve um problema na validação da sua documentação. Motivo: ${reason || 'Não informado'}. Acesse seu perfil para reenviar.`;
     } else if (status === 'Bloqueado') {
       notificationText = 'Sua conta foi bloqueada devido a irregularidades na documentação. Entre em contato com o suporte para mais detalhes.';
     }
@@ -698,10 +705,34 @@ app.post('/api/admin/documents/verify', verifyAdminToken, async (req, res) => {
   }
 });
 
+// ── Limpeza de Token FCM Inválido ──
+async function clearInvalidFcmToken(token) {
+  try {
+    const usersSnap = await db.collection('users').where('fcmToken', '==', token).get();
+    const batch = db.batch();
+    usersSnap.forEach(doc => {
+      batch.update(doc.ref, {
+        fcmToken: admin.firestore.FieldValue.delete(),
+        fcmTokenUpdatedAt: admin.firestore.FieldValue.delete()
+      });
+    });
+
+    const fcmSnap = await db.collection('fcm_tokens').where('token', '==', token).get();
+    fcmSnap.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+    console.log(`[FCM] Token inválido limpo: ${token}`);
+  } catch (err) {
+    console.error('[FCM] Erro ao limpar token inválido:', err.message);
+  }
+}
+
 // ── POST /api/admin/notifications/send ──
 app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => {
   try {
-    const { targetUid, title, message } = req.body;
+    const { targetUid, title, message, sendInternal = true, sendPush = false } = req.body;
 
     if (!targetUid || (!title && !message)) {
       return res.status(400).json({
@@ -712,63 +743,165 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
     const tTitle = title ? title.trim() : '';
     const tMessage = message ? message.trim() : '';
 
-    let sentCount = 0;
-    
+    let internalSentCount = 0;
+    let pushSentCount = 0;
+    let pushFailCount = 0;
+
     // Criar o documento de histórico de notificações em admin_notifications
     const notifRef = db.collection('admin_notifications').doc();
     const notificationId = notifRef.id;
 
-    if (targetUid === 'all' || targetUid === 'shippers' || targetUid === 'drivers') {
-      let usersQuery = db.collection('users');
-      if (targetUid === 'shippers') {
-        usersQuery = usersQuery.where('role', '==', 'shipper');
-      } else if (targetUid === 'drivers') {
-        usersQuery = usersQuery.where('role', '==', 'driver');
-      }
-
-      const usersSnap = await usersQuery.get();
-      const batch = db.batch();
-      let batchCount = 0;
-
-      const batches = [batch];
-      let currentBatch = batch;
-
-      usersSnap.forEach(doc => {
-        if (batchCount >= 499) {
-          currentBatch = db.batch();
-          batches.push(currentBatch);
-          batchCount = 0;
+    // ── 1. ENVIO INTERNO (DENTRO DO APP) ──
+    if (sendInternal) {
+      if (targetUid === 'all' || targetUid === 'shippers' || targetUid === 'drivers') {
+        let usersQuery = db.collection('users');
+        if (targetUid === 'shippers') {
+          usersQuery = usersQuery.where('role', '==', 'shipper');
+        } else if (targetUid === 'drivers') {
+          usersQuery = usersQuery.where('role', '==', 'driver');
         }
 
-        const msgRef = db.collection('system_messages').doc();
-        currentBatch.set(msgRef, {
-          userUid: doc.id,
+        const usersSnap = await usersQuery.get();
+        const batch = db.batch();
+        let batchCount = 0;
+        const batches = [batch];
+        let currentBatch = batch;
+
+        usersSnap.forEach(doc => {
+          if (batchCount >= 499) {
+            currentBatch = db.batch();
+            batches.push(currentBatch);
+            batchCount = 0;
+          }
+
+          const msgRef = db.collection('system_messages').doc();
+          currentBatch.set(msgRef, {
+            userUid: doc.id,
+            title: tTitle,
+            message: tMessage,
+            read: false,
+            type: targetUid === 'all' ? 'admin_broadcast' : (targetUid === 'shippers' ? 'admin_shippers_broadcast' : 'admin_drivers_broadcast'),
+            notificationId: notificationId,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          batchCount++;
+          internalSentCount++;
+        });
+
+        for (const b of batches) {
+          await b.commit();
+        }
+      } else {
+        // Mensagem individual
+        await db.collection('system_messages').add({
+          userUid: targetUid,
           title: tTitle,
           message: tMessage,
           read: false,
-          type: targetUid === 'all' ? 'admin_broadcast' : (targetUid === 'shippers' ? 'admin_shippers_broadcast' : 'admin_drivers_broadcast'),
-          notificationId: notificationId, // Link para permitir exclusão
+          type: 'admin_notification',
+          notificationId: notificationId,
           createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
-        batchCount++;
-        sentCount++;
-      });
-
-      for (const b of batches) {
-        await b.commit();
+        internalSentCount = 1;
       }
-    } else {
-      // Mensagem individual
-      await db.collection('system_messages').add({
-        userUid: targetUid,
-        title: tTitle,
-        message: tMessage,
-        read: false,
-        type: 'admin_notification',
-        notificationId: notificationId, // Link para permitir exclusão
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-      sentCount = 1;
+    }
+
+    // ── 2. ENVIO PUSH EXTERNO (FCM) ──
+    if (sendPush) {
+      const tokens = [];
+      if (targetUid === 'all' || targetUid === 'shippers' || targetUid === 'drivers') {
+        let fcmQuery = db.collection('fcm_tokens');
+        if (targetUid === 'shippers') {
+          fcmQuery = fcmQuery.where('role', '==', 'shipper');
+        } else if (targetUid === 'drivers') {
+          fcmQuery = fcmQuery.where('role', '==', 'driver');
+        }
+        const snap = await fcmQuery.get();
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (data.token) tokens.push(data.token);
+        });
+
+        // Fallback: Se a coleção global fcm_tokens não retornou nenhum token, busca na coleção users
+        if (tokens.length === 0) {
+          let usersQuery = db.collection('users').where('fcmToken', '!=', null);
+          if (targetUid === 'shippers') {
+            usersQuery = usersQuery.where('role', '==', 'shipper');
+          } else if (targetUid === 'drivers') {
+            usersQuery = usersQuery.where('role', '==', 'driver');
+          }
+          const usersSnap = await usersQuery.get();
+          usersSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.fcmToken) tokens.push(data.fcmToken);
+          });
+        }
+      } else {
+        // Usuário individual
+        const fcmDoc = await db.collection('fcm_tokens').doc(targetUid).get();
+        if (fcmDoc.exists && fcmDoc.data().token) {
+          tokens.push(fcmDoc.data().token);
+        } else {
+          // Fallback para o documento do usuário
+          const uDoc = await db.collection('users').doc(targetUid).get();
+          if (uDoc.exists && uDoc.data().fcmToken) {
+            tokens.push(uDoc.data().fcmToken);
+          }
+        }
+      }
+
+      if (tokens.length > 0) {
+        const BATCH_SIZE = 500;
+        for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
+          const batch = tokens.slice(i, i + BATCH_SIZE);
+          const fcmMessage = {
+            notification: {
+              title: tTitle || 'PegaFrete',
+              body: tMessage || ''
+            },
+            data: {
+              click_action: '/',
+              tag: 'pegafrete'
+            },
+            tokens: batch,
+            android: {
+              priority: 'high',
+              notification: {
+                sound: 'default',
+                channelId: 'pegafrete_channel'
+              }
+            },
+            webpush: {
+              notification: {
+                icon: '/pegafrete_logo_new.jpg',
+                badge: '/favicon.svg',
+                tag: 'pegafrete-notification'
+              },
+              fcmOptions: {
+                link: '/'
+              }
+            }
+          };
+
+          try {
+            const response = await admin.messaging().sendEachForMulticast(fcmMessage);
+            pushSentCount += response.successCount;
+            pushFailCount += response.failureCount;
+
+            // Limpa tokens inativos assincronamente
+            response.responses.forEach(async (resp, idx) => {
+              if (!resp.success) {
+                const errCode = resp.error?.code;
+                if (errCode === 'messaging/registration-token-not-registered' || errCode === 'messaging/invalid-argument') {
+                  await clearInvalidFcmToken(batch[idx]);
+                }
+              }
+            });
+          } catch (fcmErr) {
+            console.error('[FCM] Erro ao disparar lote de push:', fcmErr);
+          }
+        }
+      }
     }
 
     // Salva no histórico administrativo
@@ -776,7 +909,11 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
       targetUid,
       title: tTitle,
       message: tMessage,
-      sentCount,
+      sendInternal,
+      sendPush,
+      sentCount: sendInternal ? internalSentCount : pushSentCount,
+      pushSentCount,
+      pushFailCount,
       sentBy: req.user.uid,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
@@ -784,19 +921,32 @@ app.post('/api/admin/notifications/send', verifyAdminToken, async (req, res) => 
     await logSecurityEvent(
       req.user.uid,
       'NOTIFICATION_SENT',
-      `Admin enviou notificação para ${targetUid === 'all' ? 'todos (' + sentCount + ' usuários)' : (targetUid === 'shippers' ? 'todos os embarcadores' : (targetUid === 'drivers' ? 'todos os transportadores' : targetUid))}. Título: ${tTitle}`
+      `Admin enviou notificação (${sendInternal ? 'Interna' : ''} ${sendPush ? 'Push' : ''}) para ${
+        targetUid === 'all' ? 'todos' : (targetUid === 'shippers' ? 'embarcadores' : (targetUid === 'drivers' ? 'transportadores' : targetUid))
+      }. Título: ${tTitle}. Interna: ${internalSentCount} enviadas. Push: ${pushSentCount} enviados (${pushFailCount} falhas).`
     );
+
+    let finalMsg = '';
+    if (sendInternal && sendPush) {
+      finalMsg = `Mensagem interna enviada para ${internalSentCount} usuário(s) e Push enviado para ${pushSentCount} dispositivo(s).`;
+    } else if (sendInternal) {
+      finalMsg = `Mensagem interna enviada para ${internalSentCount} usuário(s).`;
+    } else {
+      finalMsg = `Notificação Push enviada para ${pushSentCount} dispositivo(s) (${pushFailCount} falhas).`;
+    }
 
     return res.json({
       success: true,
-      message: `Notificação enviada para ${sentCount} usuário(s).`,
-      sentCount,
+      message: finalMsg,
+      sentCount: internalSentCount || pushSentCount,
+      pushSentCount,
       notification: {
         id: notificationId,
         targetUid,
         title: tTitle,
         message: tMessage,
-        sentCount,
+        sentCount: internalSentCount || pushSentCount,
+        pushSentCount,
         createdAt: new Date().toISOString()
       }
     });
@@ -922,7 +1072,87 @@ app.delete('/api/admin/notifications/:id', verifyAdminToken, async (req, res) =>
   }
 });
 
-// ── GET /api/admin/logs ──
+// ── POST /api/admin/roles ──
+app.post('/api/admin/roles', verifyAdminToken, async (req, res) => {
+  try {
+    const { email, uid, role } = req.body;
+    let targetUid = uid;
+
+    if (email && !targetUid) {
+      try {
+        const userRecord = await auth.getUserByEmail(email);
+        targetUid = userRecord.uid;
+      } catch (err) {
+        return res.status(404).json({ error: 'Usuário não encontrado com este email no Authentication.' });
+      }
+    }
+
+    if (!targetUid) {
+      return res.status(400).json({ error: 'Email ou UID obrigatório.' });
+    }
+
+    const validRoles = ['owner', 'editor', 'viewer'];
+    const assignedRole = validRoles.includes(role) ? role : 'viewer';
+
+    await auth.setCustomUserClaims(targetUid, { admin: true, adminRole: assignedRole });
+
+    await db.collection('admins').doc(targetUid).set({
+      email: email || '',
+      uid: targetUid,
+      role: assignedRole,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      addedBy: req.user.uid
+    }, { merge: true });
+
+    await logSecurityEvent(
+      req.user.uid,
+      'ADMIN_ADDED_OR_UPDATED',
+      `Admin configurado: ${targetUid} com cargo de ${assignedRole}`
+    );
+
+    return res.json({ success: true, message: `Administrador (${assignedRole}) configurado com sucesso!` });
+  } catch (error) {
+    console.error('Erro ao configurar admin:', error);
+    return res.status(500).json({ error: 'Erro ao configurar cargo administrativo.' });
+  }
+});
+
+// ── GET /api/admin/admins ──
+app.get('/api/admin/admins', verifyAdminToken, async (req, res) => {
+  try {
+    const snapshot = await db.collection('admins').get();
+    const adminsList = [];
+    snapshot.forEach(doc => {
+      adminsList.push({ id: doc.id, ...doc.data() });
+    });
+    return res.json({ admins: adminsList });
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro ao listar administradores.' });
+  }
+});
+
+// ── DELETE /api/admin/roles/:uid ──
+app.delete('/api/admin/roles/:uid', verifyAdminToken, async (req, res) => {
+  try {
+    const targetUid = req.params.uid;
+    if (targetUid === req.user.uid) {
+      return res.status(400).json({ error: 'Você não pode remover seu próprio acesso.' });
+    }
+
+    await auth.setCustomUserClaims(targetUid, { admin: false });
+    await db.collection('admins').doc(targetUid).delete();
+
+    await logSecurityEvent(
+      req.user.uid,
+      'ADMIN_REMOVED',
+      `Acesso administrativo removido do UID: ${targetUid}`
+    );
+
+    return res.json({ success: true, message: 'Acesso revogado com sucesso.' });
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro ao revogar acesso.' });
+  }
+});
 app.get('/api/admin/logs', verifyAdminToken, async (req, res) => {
   try {
     const snapshot = await db.collection('security_logs')
