@@ -125,9 +125,18 @@ function switchSection(id) {
 
 function refreshSection() {
     const icon = document.getElementById('refreshIcon');
-    icon.classList.add('ph-spin');
-    loadData(activeSection).finally(() => setTimeout(() => icon.classList.remove('ph-spin'), 500));
+    if (icon) icon.classList.add('ph-spin');
+    loadData(activeSection).finally(() => {
+        if (icon) setTimeout(() => icon.classList.remove('ph-spin'), 500);
+    });
 }
+
+// Atualização automática a cada 30 segundos
+setInterval(() => {
+    if (activeSection === 'documents') loadPendingDocs();
+    if (activeSection === 'freights') loadFreights();
+    if (activeSection === 'stats') loadStats();
+}, 30000);
 
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
 
@@ -299,11 +308,6 @@ function filterAndRenderUsers() {
             <td class="px-6 py-4">
               <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${docBadge}">${docStatus}</span>
             </td>
-            <td class="px-6 py-4">
-              <button class="w-9 h-9 inline-flex items-center justify-center rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition-all shadow-sm" onclick="editUser('${u.uid}')" title="Editar Usuário">
-                <i class="ph ph-pencil-simple text-lg"></i>
-              </button>
-            </td>
         </tr>`;
     }).join('');
 }
@@ -345,7 +349,8 @@ function renderFreightsList() {
             statusText = 'Cancelada';
         }
 
-        const dateStr = f.createdAt ? new Date(f.createdAt).toLocaleDateString() : '';
+        const timeVal = f.createdAt ? (f.createdAt._seconds ? f.createdAt._seconds * 1000 : f.createdAt) : null;
+        const dateStr = timeVal ? new Date(timeVal).toLocaleDateString('pt-BR') : '';
 
         return `
             <div onclick="selectFreight('${f.id}')" class="p-4 border-b border-slate-50 cursor-pointer transition-colors border-l-4 ${borderClass}">
@@ -473,7 +478,8 @@ function getFilteredDocs() {
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         list = list.filter(u => {
             if (!u.createdAt) return false;
-            const d = new Date(u.createdAt);
+            const timeVal = u.createdAt._seconds ? u.createdAt._seconds * 1000 : u.createdAt;
+            const d = new Date(timeVal);
             if (dateFilter === 'today') return d >= startOfDay;
             if (dateFilter === 'week') { const weekAgo = new Date(now.getTime() - 7*24*60*60*1000); return d >= weekAgo; }
             if (dateFilter === 'month') { const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()); return d >= monthAgo; }
@@ -1210,9 +1216,35 @@ async function deleteSelectedFreight() {
     } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
-async function changeFreightStatus() {
+async function deleteFreight() {
     if (!selectedFreightId) return;
-    editFreight(selectedFreightId);
+    if (!confirm('Tem certeza que deseja APAGAR este frete? Esta ação é irreversível.')) return;
+    try {
+        const h = await getHeaders();
+        const res = await fetch(`${API}/freights/${selectedFreightId}`, { method: 'DELETE', headers: h });
+        const resData = await res.json();
+        if (!res.ok) throw new Error(resData.error || 'Erro ao apagar frete');
+        showToast('Frete apagado com sucesso', 'success');
+        document.getElementById('freightDetailsContainer').style.display = 'none';
+        document.getElementById('freightEmptyState').style.display = 'flex';
+        loadFreights();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function clearLogs() {
+    if (!confirm('Tem certeza que deseja limpar todos os logs de segurança?')) return;
+    try {
+        const h = await getHeaders();
+        const res = await fetch(`${API}/logs`, { method: 'DELETE', headers: h });
+        const resData = await res.json();
+        if (!res.ok) throw new Error(resData.error || 'Erro ao limpar logs');
+        showToast('Logs limpos com sucesso', 'success');
+        loadLogs();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
 }
 
 // === SETTINGS ===

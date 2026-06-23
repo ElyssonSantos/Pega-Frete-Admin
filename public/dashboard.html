@@ -330,7 +330,6 @@
                   <th class="px-6 py-4">Telefone</th>
                   <th class="px-6 py-4">Função</th>
                   <th class="px-6 py-4">Status Doc</th>
-                  <th class="px-6 py-4">Ações</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 text-sm" id="usersTableBody">
@@ -459,8 +458,8 @@
             
             <!-- Details Footer Action -->
             <div class="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-              <button onclick="changeFreightStatus()" id="btnChangeFreightStatus" class="px-6 py-2 rounded-lg bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition-shadow shadow-md">
-                Alterar Status
+              <button onclick="deleteFreight()" id="btnDeleteFreight" class="px-6 py-2 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 transition-shadow shadow-md">
+                Apagar Frete
               </button>
             </div>
           </section>
@@ -754,7 +753,12 @@
               <h3 class="text-lg font-bold text-brand">Logs de Segurança</h3>
               <p class="text-sm text-slate-500">Auditoria do sistema</p>
             </div>
-            <span class="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-bold border border-red-100">Últimos 100</span>
+            <div class="flex items-center gap-3">
+              <span class="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-bold border border-red-100">Últimos 100</span>
+              <button onclick="clearLogs()" class="px-3 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600 text-xs font-bold transition-colors border border-slate-200 hover:border-red-200">
+                Limpar Logs
+              </button>
+            </div>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left whitespace-nowrap">

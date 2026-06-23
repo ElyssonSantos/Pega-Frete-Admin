@@ -192,6 +192,23 @@ async function logSecurityEvent(uid, event, details, page = 'admin-panel') {
   }
 }
 
+// ── DELETE /api/admin/logs ──
+app.delete('/api/admin/logs', verifyAdminToken, async (req, res) => {
+  try {
+    const logsSnap = await db.collection('security_logs').get();
+    const batch = db.batch();
+    logsSnap.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+    await logSecurityEvent(req.user.uid, 'LOGS_CLEARED', 'Admin limpou o histórico de logs de segurança');
+    return res.json({ success: true, message: 'Logs limpos com sucesso.' });
+  } catch (error) {
+    console.error('Erro ao limpar logs:', error);
+    return res.status(500).json({ error: 'Erro ao limpar logs de segurança.' });
+  }
+});
+
 // ───────────────────────── ROTAS DA API ─────────────────────────
 
 // ── Rota de Setup-claims removida por segurança (Zero Trust) ──
