@@ -1,7 +1,7 @@
 /* PegaFrete Admin Portal — Client Logic */
 
 const firebaseConfig = {
-    apiKey: "AIzaSyD7lL5jSj57oLL_wWJWbImUD2Y7TKk3gRI",
+    apiKey: "AIzaSyD7LL5jSj57oLL_wWJWbImUD2Y7Tkk3gRI",
     authDomain: "pegafrete-logistica.firebaseapp.com",
     projectId: "pegafrete-logistica",
     storageBucket: "pegafrete-logistica.firebasestorage.app",
@@ -1234,17 +1234,7 @@ async function deleteFreight() {
 }
 
 async function clearLogs() {
-    if (!confirm('Tem certeza que deseja limpar todos os logs de segurança?')) return;
-    try {
-        const h = await getHeaders();
-        const res = await fetch(`${API}/logs`, { method: 'DELETE', headers: h });
-        const resData = await res.json();
-        if (!res.ok) throw new Error(resData.error || 'Erro ao limpar logs');
-        showToast('Logs limpos com sucesso', 'success');
-        loadLogs();
-    } catch (err) {
-        showToast(err.message, 'error');
-    }
+    showToast('Ação não permitida: Os logs de auditoria são imutáveis e mantidos para fins de segurança.', 'error');
 }
 
 // === SETTINGS ===

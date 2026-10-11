@@ -123,12 +123,23 @@ app.use(helmet({
   crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
 }));
 
+const allowedOrigins = [
+  'https://pegafreteadmin.vercel.app',
+  'https://pegafrete-logistica.web.app',
+  'https://pegafrete-logistica.firebaseapp.com',
+  'http://localhost:5173',
+  'http://localhost:5000',
+  'http://localhost:3000'
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:5000',
-    'http://localhost:3000',
-    'https://pegafreteadmin.vercel.app'
-  ],
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.web.app') || origin.endsWith('.firebaseapp.com') || origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
   credentials: true
 }));
 
@@ -167,7 +178,7 @@ async function verifyAdminToken(req, res, next) {
     req.user = decodedToken;
     next();
   } catch (error) {
-    console.error('Erro ao verificar token:', error.message);
+    console.error('Erro ao verificar token admin:', error.message);
     const initInfo = `[Init: ${firebaseInitStatus.method}, Error: ${firebaseInitStatus.error}]`;
     if (error.code === 'auth/id-token-expired') {
       return res.status(401).json({ error: `Token expirado. ${error.message} ${initInfo}` });
@@ -176,7 +187,54 @@ async function verifyAdminToken(req, res, next) {
   }
 }
 
+async function verifyUserToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token de autenticação não fornecido.' });
+  }
+
+  const token = authHeader.split('Bearer ')[1];
+
+  try {
+    const decodedToken = await auth.verifyIdToken(token);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    console.error('Erro ao verificar token de usuário:', error.message);
+    return res.status(401).json({ error: 'Token inválido ou expirado.', details: error.message });
+  }
+}
+
 // ───────────────────────── Utilitários ─────────────────────────
+
+// ── Utilitário de Sincronização Dual de Status Documental ──
+function syncDocumentStatus(inputStatus) {
+  if (!inputStatus || typeof inputStatus !== 'string') {
+    return null;
+  }
+  const s = inputStatus.trim();
+  if (s === 'verified' || s === 'Aprovado') {
+    return { docStatus: 'Aprovado', documentStatus: 'verified' };
+  }
+  if (s === 'rejected' || s === 'Reprovado') {
+    return { docStatus: 'Reprovado', documentStatus: 'rejected' };
+  }
+  if (s === 'blocked' || s === 'Bloqueado') {
+    return { docStatus: 'Bloqueado', documentStatus: 'blocked' };
+  }
+  if (s === 'pending' || s === 'Pendente') {
+    return { docStatus: 'Pendente', documentStatus: 'pending' };
+  }
+  if (s === 'Em Análise') {
+    return { docStatus: 'Em Análise', documentStatus: 'pending' };
+  }
+  if (s === 'Documentação Incompleta') {
+    return { docStatus: 'Documentação Incompleta', documentStatus: 'pending' };
+  }
+  return null;
+}
+
 
 async function logSecurityEvent(uid, event, details, page = 'admin-panel') {
   try {
@@ -194,12 +252,75 @@ async function logSecurityEvent(uid, event, details, page = 'admin-panel') {
 
 // ── DELETE /api/admin/logs ──
 app.delete('/api/admin/logs', verifyAdminToken, async (req, res) => {
-  return res.status(403).json({ error: 'Operação não permitida: Logs de segurança são imutáveis.' });
+  return res.status(403).json({ error: 'Operação não permitida: Os logs de auditoria são imutáveis e não podem ser apagados.' });
 });
 
 // ───────────────────────── ROTAS DA API ─────────────────────────
 
-// ── Rota de Setup-claims removida por segurança (Zero Trust) ──
+// ── POST /api/user/change-email (Usado pelo App Principal PegaFrete) ──
+app.post('/api/user/change-email', verifyUserToken, async (req, res) => {
+  const { newEmail } = req.body;
+  const uid = req.user.uid;
+  const oldEmail = req.user.email;
+
+  if (!newEmail || typeof newEmail !== 'string') {
+    return res.status(400).json({ error: 'Novo e-mail inválido.' });
+  }
+  const newEmailLower = newEmail.toLowerCase().trim();
+  const oldEmailLower = oldEmail ? oldEmail.toLowerCase().trim() : null;
+
+  if (newEmailLower === oldEmailLower) {
+    return res.status(400).json({ error: 'O novo e-mail é igual ao atual.' });
+  }
+
+  try {
+    // 1. Validar se o e-mail já existe no Auth
+    try {
+      await auth.getUserByEmail(newEmailLower);
+      return res.status(409).json({ error: 'Este e-mail já está em uso por outra conta.' });
+    } catch (error) {
+      if (error.code !== 'auth/user-not-found') {
+        throw error;
+      }
+    }
+
+    // 2. Atualizar no Firebase Auth
+    await auth.updateUser(uid, { email: newEmailLower });
+
+    try {
+      // 3. Atualizar public_emails e users
+      const batch = db.batch();
+
+      if (oldEmailLower) {
+        const oldEmailRef = db.collection('public_emails').doc(oldEmailLower);
+        batch.delete(oldEmailRef);
+      }
+
+      const newEmailRef = db.collection('public_emails').doc(newEmailLower);
+      batch.set(newEmailRef, { provider: 'password' });
+
+      const userRef = db.collection('users').doc(uid);
+      batch.update(userRef, { email: newEmailLower });
+
+      await batch.commit();
+
+      return res.status(200).json({ success: true, message: 'E-mail atualizado com sucesso.' });
+    } catch (batchError) {
+      console.error('Falha no batch do Firestore, rollback no Auth...', batchError);
+      try {
+        if (oldEmailLower) {
+          await auth.updateUser(uid, { email: oldEmailLower });
+        }
+      } catch (rollbackError) {
+        console.error('CRITICAL: Falha no rollback de e-mail', rollbackError);
+      }
+      return res.status(500).json({ error: 'Falha ao sincronizar dados. Operação cancelada.' });
+    }
+  } catch (error) {
+    console.error('Erro no change-email:', error);
+    return res.status(500).json({ error: 'Erro interno ao alterar e-mail.', details: error.message });
+  }
+});
 
 // ── GET /api/admin/settings ──
 app.get('/api/admin/settings', verifyAdminToken, async (req, res) => {
@@ -360,9 +481,13 @@ app.post('/api/admin/docs/:uid/status', verifyAdminToken, async (req, res) => {
     const userSnap = await userRef.get();
     const role = userSnap.exists ? (userSnap.data().role || 'driver') : 'driver';
 
+    const synced = syncDocumentStatus(status);
+    if (!synced) {
+      return res.status(400).json({ error: 'Status documental inválido.' });
+    }
     const updateData = { 
-      docStatus: status,
-      documentStatus: status === 'Aprovado' ? 'verified' : (status === 'Reprovado' ? 'rejected' : 'pending')
+      docStatus: synced.docStatus,
+      documentStatus: synced.documentStatus
     };
     if (reason) updateData.rejectionReason = reason;
     if (documentStatuses) updateData.documentStatuses = documentStatuses;
@@ -471,14 +596,46 @@ app.put('/api/admin/users/:uid', verifyAdminToken, async (req, res) => {
     // Campos permitidos para atualização
     const allowedFields = [
       'name', 'email', 'phone', 'cpf', 'cnpj',
-      'address', 'role', 'vehicle', 'documentStatus',
+      'address', 'role', 'vehicle', 'documentStatus', 'docStatus',
       'rating', 'entregas'
     ];
 
     const sanitized = {};
+    const stringFields = ['name', 'email', 'phone', 'cpf', 'cnpj', 'address', 'vehicle'];
+
     for (const key of allowedFields) {
-      if (updates[key] !== undefined) {
-        sanitized[key] = updates[key];
+      const val = updates[key];
+      if (val === undefined || val === null) continue;
+
+      if (stringFields.includes(key)) {
+        if (typeof val !== 'string') {
+          return res.status(400).json({ error: `O campo '${key}' deve ser uma texto (string).` });
+        }
+        sanitized[key] = val.trim();
+      } else if (key === 'role') {
+        if (typeof val !== 'string' || !['driver', 'shipper', 'admin'].includes(val)) {
+          return res.status(400).json({ error: "O campo 'role' deve ser 'driver', 'shipper' ou 'admin'." });
+        }
+        sanitized[key] = val;
+      } else if (key === 'documentStatus' || key === 'docStatus') {
+        const synced = syncDocumentStatus(val);
+        if (!synced) {
+          return res.status(400).json({ error: "Valor inválido para o status de documento." });
+        }
+        sanitized.documentStatus = synced.documentStatus;
+        sanitized.docStatus = synced.docStatus;
+      } else if (key === 'rating') {
+        const num = Number(val);
+        if (isNaN(num) || num < 0 || num > 5) {
+          return res.status(400).json({ error: "O campo 'rating' deve ser um número entre 0 e 5." });
+        }
+        sanitized[key] = num;
+      } else if (key === 'entregas') {
+        const num = Number(val);
+        if (!Number.isInteger(num) || num < 0) {
+          return res.status(400).json({ error: "O campo 'entregas' deve ser um número inteiro maior ou igual a 0." });
+        }
+        sanitized[key] = num;
       }
     }
 
@@ -595,15 +752,27 @@ app.delete('/api/admin/freights/:id', verifyAdminToken, async (req, res) => {
   try {
     const { id } = req.params;
     
-    await db.collection('freights').doc(id).delete();
+    const freightRef = db.collection('freights').doc(id);
+    const freightSnap = await freightRef.get();
+    if (freightSnap && !freightSnap.exists) {
+      return res.status(404).json({ error: 'Frete não encontrado.' });
+    }
+
+    await freightRef.update({
+      status: 'cancelado',
+      canceladoPor: 'admin',
+      canceladoEm: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: req.user.uid
+    });
 
     await logSecurityEvent(
       req.user.uid,
       'FREIGHT_DELETED',
-      `Admin removeu o frete ${id}`
+      `Admin cancelou (soft-delete) o frete ${id}`
     );
 
-    return res.json({ success: true, message: 'Frete apagado com sucesso.' });
+    return res.json({ success: true, message: 'Frete cancelado com sucesso.' });
   } catch (error) {
     console.error('Erro em delete freight:', error);
     return res.status(500).json({ error: 'Erro ao apagar frete.' });
@@ -613,26 +782,36 @@ app.delete('/api/admin/freights/:id', verifyAdminToken, async (req, res) => {
 // ── GET /api/admin/documents/pending ──
 app.get('/api/admin/documents/pending', verifyAdminToken, async (req, res) => {
   try {
-    const snapshot = await db.collection('users')
-      .where('documentStatus', '==', 'pending')
-      .get();
+    const [snapEng, snapPt] = await Promise.all([
+      db.collection('users').where('documentStatus', '==', 'pending').get(),
+      db.collection('users').where('docStatus', 'in', ['Pendente', 'Em Análise', 'Documentação Incompleta']).get()
+    ]);
 
-    const pending = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      pending.push({
-        uid: doc.id,
-        name: data.name || 'Sem nome',
-        email: data.email || '',
-        phone: data.phone || '',
-        role: data.role || '',
-        cpf: data.cpf || '',
-        cnpj: data.cnpj || '',
-        documentStatus: data.documentStatus,
-        createdAt: data.createdAt
-      });
-    });
+    const userMap = new Map();
 
+    const addDocToMap = (doc) => {
+      if (!userMap.has(doc.id)) {
+        const data = doc.data();
+        const synced = syncDocumentStatus(data.docStatus || data.documentStatus);
+        userMap.set(doc.id, {
+          uid: doc.id,
+          name: data.name || data.nome || 'Sem nome',
+          email: data.email || '',
+          phone: data.phone || data.telefone || '',
+          role: data.role || '',
+          cpf: data.cpf || '',
+          cnpj: data.cnpj || '',
+          documentStatus: data.documentStatus || (synced ? synced.documentStatus : 'pending'),
+          docStatus: data.docStatus || (synced ? synced.docStatus : 'Pendente'),
+          createdAt: data.createdAt
+        });
+      }
+    };
+
+    snapEng.forEach(addDocToMap);
+    snapPt.forEach(addDocToMap);
+
+    const pending = Array.from(userMap.values());
     return res.json({ pending, total: pending.length });
   } catch (error) {
     console.error('Erro em pending docs:', error);
@@ -661,9 +840,13 @@ app.post('/api/admin/documents/verify', verifyAdminToken, async (req, res) => {
     const batch = db.batch();
 
     // 1. Atualizar status do documento no perfil do usuário
+    const synced = syncDocumentStatus(status);
+    if (!synced) {
+      return res.status(400).json({ error: 'Status documental inválido.' });
+    }
     batch.update(userRef, {
-      documentStatus: status,
-      docStatus: status === 'verified' ? 'Aprovado' : 'Reprovado',
+      documentStatus: synced.documentStatus,
+      docStatus: synced.docStatus,
       documentVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
       documentVerifierUid: req.user.uid
     });
