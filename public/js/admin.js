@@ -1,7 +1,7 @@
 /* PegaFrete Admin Portal — Client Logic */
 
 const firebaseConfig = {
-    apiKey: "AIzaSyD7LL5jSj57oLL_wWJWbImUD2Y7Tkk3gRI",
+    apiKey: "AIzaSyD7lL5jSj57oLL_wWJWbImUD2Y7TKk3gRI",
     authDomain: "pegafrete-logistica.firebaseapp.com",
     projectId: "pegafrete-logistica",
     storageBucket: "pegafrete-logistica.firebasestorage.app",
